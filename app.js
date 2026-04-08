@@ -233,9 +233,7 @@ const els = {
   scoreGrid: document.getElementById("scoreGrid"),
   statusText: document.getElementById("statusText"),
   teamNameGrid: document.getElementById("teamNameGrid"),
-  logList: document.getElementById("logList"),
   assignmentPanel: document.getElementById("assignmentPanel"),
-  questionPreviewList: document.getElementById("questionPreviewList"),
   resetBtn: document.getElementById("resetBtn"),
   undoBtn: document.getElementById("undoBtn"),
   modalOverlay: document.getElementById("modalOverlay"),
@@ -244,6 +242,7 @@ const els = {
   modalCategory: document.getElementById("modalCategory"),
   modalTitle: document.getElementById("modalTitle"),
   modalOptions: document.getElementById("modalOptions"),
+  modalExplanation: document.getElementById("modalExplanation"),
   modalExplanation: document.getElementById("modalExplanation"),
   modalResultBar: document.getElementById("modalResultBar"),
 };
@@ -596,12 +595,6 @@ function renderScore() {
   }).join("");
 }
 
-function renderLog() {
-  els.logList.innerHTML = state.log.slice(0, 8).map((entry) => `
-    <div class="log-entry">${escapeHtml(entry)}</div>
-  `).join("");
-}
-
 function renderAssignmentPanel() {
   const pendingCell = getPendingCell();
   const teams = getTeams();
@@ -644,15 +637,6 @@ function renderAssignmentPanel() {
   els.assignmentPanel.querySelectorAll(".assignment-team-btn").forEach((button) => {
     button.addEventListener("click", () => assignToTeam(button.dataset.teamId));
   });
-}
-
-function renderQuestionPreviews() {
-  els.questionPreviewList.innerHTML = QUESTIONS.slice(0, 6).map((q) => `
-    <article class="question-preview-item">
-      <strong>#${q.id} / ${escapeHtml(q.category)}</strong>
-      <p>${escapeHtml(q.question)}</p>
-    </article>
-  `).join("");
 }
 
 function renderModal() {
@@ -742,9 +726,7 @@ function render() {
   renderTeamNameInputs();
   renderBoard();
   renderScore();
-  renderLog();
   renderAssignmentPanel();
-  renderQuestionPreviews();
   els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0;
   renderModal();

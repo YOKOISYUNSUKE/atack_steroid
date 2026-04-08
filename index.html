@@ -85,23 +85,6 @@
               <div id="scoreGrid" class="score-grid"></div>
             </section>
 
-            <section class="panel mini-panel">
-              <div class="section-head">
-                <h2>進行ログ</h2>
-                <span>最新順</span>
-              </div>
-              <div id="logList" class="log-list"></div>
-            </section>
-
-            <section class="panel mini-panel note-panel">
-              <h2>司会者メモ</h2>
-              <ul>
-                <li>クリックで問題を表示し、選択肢を選ぶ。</li>
-                <li>正解なら右側の固定パネルで獲得チームを確定する。</li>
-                <li>不正解ならそのマスは空白のまま使用済みになる。</li>
-                <li>全25マス消費後、最多獲得チームが勝利。単独勝利時のみ隠し絵が開く。</li>
-              </ul>
-            </section>
           </div>
         </div>
       </section>
@@ -112,35 +95,6 @@
           <div id="assignmentPanel"></div>
         </section>
 
-        <section class="panel">
-          <h2>問題データ</h2>
-          <p class="subtext">
-            問題文は <strong>app.js</strong> の単一配列に集約してあるでござる。GitHub公開時もそのまま管理しやすい構成です。
-          </p>
-          <div id="questionPreviewList" class="question-preview-list"></div>
-        </section>
-
-        <section class="panel">
-          <h2>ゲーム仕様</h2>
-          <div class="spec-list">
-            <article>
-              <h3>盤面</h3>
-              <p>5×5の25マス。各マスは1回だけ処理される。</p>
-            </article>
-            <article>
-              <h3>獲得</h3>
-              <p>正解時のみチーム色で獲得。不正解時は空白のまま消費。</p>
-            </article>
-            <article>
-              <h3>反転</h3>
-              <p>新規獲得時、8方向で連続する他チーム色を同色で挟めば反転。</p>
-            </article>
-            <article>
-              <h3>勝利演出</h3>
-              <p>単独優勝チームの獲得マスが透明化し、その位置だけ隠し絵が露出。</p>
-            </article>
-          </div>
-        </section>
       </aside>
     </main>
   </div>
