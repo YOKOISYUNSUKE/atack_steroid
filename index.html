@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ステロイド・オセロ式クイズ大会</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <main class="layout">
+      <section class="main-panel panel">
+        <header class="hero">
+          <div>
+            <div class="pill">QUIZ APP</div>
+            <h1>ステロイド・オセロ式クイズ大会</h1>
+            <p class="hero-text">
+              25マスの問題を解き、正答チームがそのマスを獲得。新規獲得時には8方向でオセロ式の反転判定を行います。全マス消費後、最多獲得チームが勝利です。
+            </p>
+          </div>
+          <div class="hero-actions">
+            <button id="undoBtn" class="btn btn-secondary" type="button">1手戻す</button>
+            <button id="resetBtn" class="btn btn-danger" type="button">リセット</button>
+          </div>
+        </header>
+
+        <section class="team-name-grid" id="teamNameGrid"></section>
+
+        <section class="status-box">
+          <span class="status-label">状態：</span>
+          <span id="statusText"></span>
+        </section>
+
+        <div class="board-area">
+          <div class="board-wrap">
+            <div class="board-art" aria-hidden="true">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#0f172a"></stop>
+                    <stop offset="50%" stop-color="#1d4ed8"></stop>
+                    <stop offset="100%" stop-color="#7c3aed"></stop>
+                  </linearGradient>
+                  <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#fde68a"></stop>
+                    <stop offset="45%" stop-color="#fbbf24"></stop>
+                    <stop offset="100%" stop-color="#f59e0b"></stop>
+                  </linearGradient>
+                </defs>
+                <rect width="100" height="100" fill="url(#bgGrad)"></rect>
+                <circle cx="16" cy="16" r="10" fill="rgba(255,255,255,0.12)"></circle>
+                <circle cx="82" cy="22" r="12" fill="rgba(255,255,255,0.09)"></circle>
+                <circle cx="70" cy="80" r="16" fill="rgba(255,255,255,0.07)"></circle>
+                <g fill="#fff7ed" opacity="0.92">
+                  <path d="M12 32 l1.2 1.2 1.8 0.6 -1.8 0.6 -1.2 1.2 -1.2 -1.2 -1.8 -0.6 1.8 -0.6z"></path>
+                  <path d="M24 10 l1 1 1.5 0.5 -1.5 0.5 -1 1 -1 -1 -1.5 -0.5 1.5 -0.5z"></path>
+                  <path d="M39 16 l1.3 1.3 2 0.7 -2 0.7 -1.3 1.3 -1.3 -1.3 -2 -0.7 2 -0.7z"></path>
+                  <path d="M86 42 l1.2 1.2 1.8 0.6 -1.8 0.6 -1.2 1.2 -1.2 -1.2 -1.8 -0.6 1.8 -0.6z"></path>
+                </g>
+                <g transform="translate(50 56)">
+                  <path d="M-18 -16 h36 c0 14 -8 22 -18 22 s-18 -8 -18 -22Z" fill="url(#gold)" stroke="#fff7ed" stroke-width="1.5"></path>
+                  <path d="M-9 6 h18 v10 h-18Z" fill="url(#gold)" stroke="#fff7ed" stroke-width="1.5"></path>
+                  <path d="M-18 16 h36 v7 h-36Z" fill="#92400e" opacity="0.85" rx="2"></path>
+                  <path d="M-18 -12 c-8 0 -12 4 -12 10 c0 6 5 10 12 10" fill="none" stroke="#fde68a" stroke-width="3" stroke-linecap="round"></path>
+                  <path d="M18 -12 c8 0 12 4 12 10 c0 6 -5 10 -12 10" fill="none" stroke="#fde68a" stroke-width="3" stroke-linecap="round"></path>
+                  <circle cx="0" cy="-5" r="6.5" fill="#fff7ed" opacity="0.95"></circle>
+                  <text x="0" y="-2" text-anchor="middle" font-size="7" font-weight="700" fill="#b45309">1</text>
+                </g>
+                <g opacity="0.9">
+                  <path d="M14 92 C24 76, 32 72, 40 62" fill="none" stroke="#fca5a5" stroke-width="3" stroke-linecap="round"></path>
+                  <path d="M25 90 C36 74, 48 66, 58 54" fill="none" stroke="#93c5fd" stroke-width="3" stroke-linecap="round"></path>
+                  <path d="M40 92 C48 82, 62 72, 74 60" fill="none" stroke="#86efac" stroke-width="3" stroke-linecap="round"></path>
+                  <path d="M60 92 C66 82, 76 76, 88 68" fill="none" stroke="#fde68a" stroke-width="3" stroke-linecap="round"></path>
+                </g>
+                <text x="50" y="16" text-anchor="middle" font-size="9" font-weight="700" fill="#ffffff" opacity="0.95">CHAMPION</text>
+                <text x="50" y="88" text-anchor="middle" font-size="7.5" font-weight="700" fill="#e0e7ff" opacity="0.95">STEROID QUIZ BATTLE</text>
+              </svg>
+            </div>
+            <div class="board-grid" id="boardGrid"></div>
+          </div>
+
+          <div class="side-column">
+            <section class="panel mini-panel">
+              <h2>スコア</h2>
+              <div id="scoreGrid" class="score-grid"></div>
+            </section>
+
+            <section class="panel mini-panel">
+              <div class="section-head">
+                <h2>進行ログ</h2>
+                <span>最新順</span>
+              </div>
+              <div id="logList" class="log-list"></div>
+            </section>
+
+            <section class="panel mini-panel note-panel">
+              <h2>司会者メモ</h2>
+              <ul>
+                <li>クリックで問題を表示し、選択肢を選ぶ。</li>
+                <li>正解なら右側の固定パネルで獲得チームを確定する。</li>
+                <li>不正解ならそのマスは空白のまま使用済みになる。</li>
+                <li>全25マス消費後、最多獲得チームが勝利。単独勝利時のみ隠し絵が開く。</li>
+              </ul>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <aside class="right-rail">
+        <section class="panel sticky-panel">
+          <h2>獲得チーム確定パネル</h2>
+          <div id="assignmentPanel"></div>
+        </section>
+
+        <section class="panel">
+          <h2>問題データ</h2>
+          <p class="subtext">
+            問題文は <strong>app.js</strong> の単一配列に集約してあるでござる。GitHub公開時もそのまま管理しやすい構成です。
+          </p>
+          <div id="questionPreviewList" class="question-preview-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2>ゲーム仕様</h2>
+          <div class="spec-list">
+            <article>
+              <h3>盤面</h3>
+              <p>5×5の25マス。各マスは1回だけ処理される。</p>
+            </article>
+            <article>
+              <h3>獲得</h3>
+              <p>正解時のみチーム色で獲得。不正解時は空白のまま消費。</p>
+            </article>
+            <article>
+              <h3>反転</h3>
+              <p>新規獲得時、8方向で連続する他チーム色を同色で挟めば反転。</p>
+            </article>
+            <article>
+              <h3>勝利演出</h3>
+              <p>単独優勝チームの獲得マスが透明化し、その位置だけ隠し絵が露出。</p>
+            </article>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay hidden" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-head">
+        <div>
+          <div class="pill" id="modalLabel">QUESTION</div>
+          <div class="modal-category" id="modalCategory"></div>
+          <h2 id="modalTitle"></h2>
+        </div>
+        <button id="closeModalBtn" class="btn btn-secondary" type="button">閉じる</button>
+      </div>
+      <div id="modalOptions" class="option-list"></div>
+      <div id="modalExplanation" class="explanation-box hidden"></div>
+      <div id="modalResultBar" class="result-bar hidden"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
