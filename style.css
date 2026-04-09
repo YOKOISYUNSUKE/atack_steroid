@@ -47,7 +47,7 @@ button {
   width: min(1440px, 100%);
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 2.4fr) minmax(160px, 0.4fr);
   gap: 24px;
 }
 
