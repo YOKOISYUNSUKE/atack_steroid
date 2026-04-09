@@ -496,11 +496,15 @@ function getStatusText() {
 
 function renderTeamNameInputs() {
   const teams = getTeams();
+  const counts = getCounts();
   els.teamNameGrid.innerHTML = teams.map((team, index) => `
     <label class="team-name-card">
       <div class="team-name-top">
-        <span class="color-dot" style="background:${team.color}"></span>
-        <span>TEAM ${index + 1}</span>
+        <div class="team-name-label-row">
+          <span class="color-dot" style="background:${team.color}"></span>
+          <span>TEAM ${index + 1}</span>
+        </div>
+        <span class="team-name-score">${counts[team.id]}</span>
       </div>
       <input
         class="team-name-input"
