@@ -1,4 +1,5 @@
 const BOARD_SIZE = 5;
+const MAX_ATTEMPTS = 3;
 
 const TEAM_DEFS = [
   { id: "red", name: "\u30c1\u30fc\u30e0A", color: "#ef4444", soft: "rgba(239,68,68,0.18)", border: "rgba(254,202,202,0.9)" },
@@ -27,12 +28,12 @@ const QUESTIONS = [
   { id: 17, category: "\u96fb\u89e3\u8cea", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u306e\u5f71\u97ff\u3067\u8d77\u3053\u308a\u3046\u308b\u96fb\u89e3\u8cea\u5909\u5316\u3068\u3057\u3066\u6bd4\u8f03\u7684\u77e5\u3089\u308c\u308b\u306e\u306f\u3069\u308c\uff1f", options: ["\u4f4e\u30ab\u30ea\u30a6\u30e0\u8840\u75c7", "\u9ad8\u30de\u30b0\u30cd\u30b7\u30a6\u30e0\u8840\u75c7\u306e\u307f", "\u91cd\u5ea6\u9ad8\u30ea\u30f3\u8840\u75c7\u306e\u307f", "\u5fc5\u767a\u306e\u9ad8\u30ab\u30eb\u30b7\u30a6\u30e0\u8840\u75c7"], correctIndex: 0, explanation: "\u9271\u8cea\u30b3\u30eb\u30c1\u30b3\u30a4\u30c9\u4f5c\u7528\u306e\u5f37\u3044\u85ac\u3067\u306f\u4f4e\u30ab\u30ea\u30a6\u30e0\u8840\u75c7\u306b\u6ce8\u610f\u3059\u308b\u3002" },
   { id: 18, category: "\u76ae\u819a\u30fb\u5275\u50b7", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u4f7f\u7528\u3067\u9045\u308c\u3084\u3059\u3044\u3082\u306e\u306f\u3069\u308c\uff1f", options: ["\u5275\u50b7\u6cbb\u7652", "\u8108\u62cd\u306e\u6e2c\u5b9a", "\u5c3f\u91cf\u8a18\u9332", "\u4f53\u6e29\u6e2c\u5b9a"], correctIndex: 0, explanation: "\u5275\u50b7\u6cbb\u7652\u9045\u5ef6\u306f\u91cd\u8981\u306a\u526f\u4f5c\u7528\u306e\u4e00\u3064\u3002" },
   { id: 19, category: "\u60a3\u8005\u6307\u5c0e", question: "\u60a3\u8005\u6307\u5c0e\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u81ea\u5df1\u5224\u65ad\u3067\u6025\u306b\u4e2d\u6b62\u3057\u306a\u3044", "\u98f2\u307f\u5fd8\u308c\u6642\u306f\u7fcc\u65e5\u306b10\u500d\u91cf\u3092\u98f2\u3080", "\u611f\u67d3\u75c7\u72b6\u306f\u5fc5\u305a\u8efd\u3044\u306e\u3067\u53d7\u8a3a\u4e0d\u8981", "\u526f\u4f5c\u7528\u306f\u7d76\u5bfe\u306b\u8d77\u3053\u3089\u306a\u3044\u3068\u8aac\u660e\u3059\u308b"], correctIndex: 0, explanation: "\u81ea\u5df1\u4e2d\u65ad\u306f\u5371\u967a\u3067\u3042\u308a\u3001\u6307\u793a\u3069\u304a\u308a\u306e\u6f38\u6e1b\u3084\u53d7\u8a3a\u304c\u91cd\u8981\u3002" },
-  { id: 20, category: "\u7cd6\u4ee3\u8b1d", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u7cd6\u5c3f\u75c5\u3067\u7279\u306b\u91cd\u8981\u306a\u5bfe\u5fdc\u306f\u3069\u308c\uff1f", options: ["\u8840\u7cd6\u30e2\u30cb\u30bf\u30ea\u30f3\u30b0", "\u6c34\u5206\u5236\u9650\u306e\u307f", "\u8074\u529b\u691c\u67fb\u306e\u307f", "\u773c\u5e2f\u56fa\u5b9a"], correctIndex: 0, explanation: "\u30b9\u30c6\u30ed\u30a4\u30c9\u306b\u3088\u308a\u8840\u7cd6\u304c\u60aa\u5316\u3057\u3046\u308b\u305f\u3081\u3001\u7d99\u7d9a\u7684\u306a\u8a55\u4fa1\u304c\u5fc5\u8981\u3002" },
-  { id: 21, category: "\u611f\u67d3\u4e88\u9632", question: "\u514d\u75ab\u6291\u5236\u4e0b\u306e\u751f\u6d3b\u6307\u5c0e\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u624b\u6d17\u3044\u30fb\u611f\u67d3\u8005\u3068\u306e\u63a5\u89e6\u56de\u907f\u3092\u6307\u5c0e\u3059\u308b", "\u767a\u71b1\u3057\u3066\u3082\u5fc5\u305a\u69d8\u5b50\u3092\u898b\u308b", "\u53e3\u8154\u30b1\u30a2\u306f\u4e0d\u8981", "\u30ef\u30af\u30c1\u30f3\u6b74\u78ba\u8a8d\u306f\u4e0d\u8981"], correctIndex: 0, explanation: "\u57fa\u672c\u7684\u306a\u611f\u67d3\u4e88\u9632\u884c\u52d5\u306e\u6307\u5c0e\u306f\u91cd\u8981\u3002" },
-  { id: 22, category: "\u7b4b\u9aa8\u683c", question: "\u9577\u671f\u30b9\u30c6\u30ed\u30a4\u30c9\u6295\u4e0e\u3067\u8d77\u3053\u308a\u3046\u308b\u3082\u306e\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u7b4b\u529b\u4f4e\u4e0b", "\u7b4b\u8089\u91cf\u306e\u5fc5\u767a\u5897\u52a0", "\u9aa8\u6298\u30ea\u30b9\u30af\u306e\u5b8c\u5168\u6d88\u5931", "\u5168\u4f8b\u3067\u8171\u53cd\u5c04\u4ea2\u9032\u306e\u307f"], correctIndex: 0, explanation: "\u30b9\u30c6\u30ed\u30a4\u30c9\u30df\u30aa\u30d1\u30c1\u30fc\u306b\u3088\u308b\u7b4b\u529b\u4f4e\u4e0b\u3082\u8d77\u3053\u308a\u3046\u308b\u3002" },
-  { id: 23, category: "\u767a\u71b1\u8a55\u4fa1", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6295\u4e0e\u4e2d\u306e\u767a\u71b1\u8a55\u4fa1\u3067\u6700\u3082\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u8efd\u5ea6\u306e\u767a\u71b1\u3067\u3082\u611f\u67d3\u3092\u5426\u5b9a\u3057\u306a\u3044", "\u767a\u71b1\u304c\u4f4e\u3051\u308c\u3070\u611f\u67d3\u306f\u7d76\u5bfe\u306b\u306a\u3044", "\u767a\u71b1\u304c\u3042\u308c\u3070\u5fc5\u305a\u85ac\u75b9", "\u89e3\u71b1\u3057\u3066\u3044\u308c\u3070\u89b3\u5bdf\u4e0d\u8981"], correctIndex: 0, explanation: "\u708e\u75c7\u53cd\u5fdc\u304c\u4fee\u98fe\u3055\u308c\u308b\u305f\u3081\u3001\u8efd\u5fae\u306a\u5fb4\u5019\u3067\u3082\u4e01\u5be7\u306a\u8a55\u4fa1\u304c\u5fc5\u8981\u3002" },
-  { id: 24, category: "\u5916\u7528", question: "\u5916\u7528\u30b9\u30c6\u30ed\u30a4\u30c9\u306e\u4f7f\u3044\u65b9\u3068\u3057\u3066\u4e00\u822c\u306b\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u90e8\u4f4d\u30fb\u75c5\u5909\u306b\u5fdc\u3058\u3066\u5f37\u3055\u3092\u9078\u3076", "\u3069\u3053\u3067\u3082\u6700\u5f37\u30e9\u30f3\u30af\u3092\u4f7f\u3046", "\u9854\u9762\u306b\u306f\u5e38\u306b\u6700\u5f37\u3092\u9577\u671f\u4f7f\u7528\u3059\u308b", "\u75c7\u72b6\u304c\u306a\u304f\u3066\u3082\u7121\u671f\u9650\u3067\u5857\u308a\u7d9a\u3051\u308b"], correctIndex: 0, explanation: "\u90e8\u4f4d\u3084\u75c5\u5909\u306e\u7a0b\u5ea6\u3067\u9069\u5207\u306a\u30e9\u30f3\u30af\u30fb\u91cf\u30fb\u671f\u9593\u3092\u9078\u3076\u3053\u3068\u304c\u91cd\u8981\u3002" },
-  { id: 25, category: "\u5168\u8eab\u7ba1\u7406", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6295\u4e0e\u4e2d\u306e\u4e00\u822c\u7684\u306a\u526f\u4f5c\u7528\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u8840\u5727\u4e0a\u6607", "\u5fc5\u767a\u306e\u5f90\u8108", "\u4e0d\u53ef\u9006\u7684\u306a\u4f4e\u4f53\u6e29\u306e\u307f", "\u6025\u901f\u306a\u8131\u6c34\u306e\u307f"], correctIndex: 0, explanation: "\u6c34\u5206\u8caf\u7559\u306a\u3069\u306b\u3088\u308a\u8840\u5727\u4e0a\u6607\u304c\u554f\u984c\u3068\u306a\u308b\u3053\u3068\u304c\u3042\u308b\u3002" },
+  { id: 20, category: "\u85ac\u7406", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u306e\u7cd6\u8cea\u30b3\u30eb\u30c1\u30b3\u30a4\u30c9\u4f5c\u7528\u3068\u3057\u3066\u6b63\u3057\u3044\u306e\u306f\u3069\u308c\uff1f", options: ["\u6297\u708e\u75c7\u4f5c\u7528\u304c\u3042\u308b", "\u8840\u7cd6\u3092\u4e0b\u3052\u308b", "\u514d\u75ab\u3092\u5fc5\u305a\u5897\u5f37\u3059\u308b", "\u9aa8\u5f62\u6210\u3092\u4fc3\u9032\u3059\u308b"], correctIndex: 0, explanation: "\u7cd6\u8cea\u30b3\u30eb\u30c1\u30b3\u30a4\u30c9\u4f5c\u7528\u306b\u306f\u6297\u708e\u75c7\u30fb\u514d\u75ab\u6291\u5236\u304c\u542b\u307e\u308c\u308b\u3002" },
+  { id: 21, category: "\u5168\u8eab\u7ba1\u7406", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6295\u4e0e\u4e2d\u306e\u4e00\u822c\u7684\u306a\u526f\u4f5c\u7528\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u8840\u5727\u4e0a\u6607", "\u5fc5\u767a\u306e\u5f90\u8108", "\u4e0d\u53ef\u9006\u7684\u306a\u4f4e\u4f53\u6e29\u306e\u307f", "\u6025\u901f\u306a\u8131\u6c34\u306e\u307f"], correctIndex: 0, explanation: "\u6c34\u5206\u8caf\u7559\u306a\u3069\u306b\u3088\u308a\u8840\u5727\u304c\u4e0a\u6607\u3059\u308b\u3053\u3068\u304c\u3042\u308b\u3002" },
+  { id: 22, category: "\u6295\u4e0e\u7d4c\u8def", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u306e\u30d1\u30eb\u30b9\u7642\u6cd5\u306e\u7279\u5fb4\u3068\u3057\u3066\u6b63\u3057\u3044\u306e\u306f\u3069\u308c\uff1f", options: ["\u5927\u91cf\u3092\u77ed\u671f\u9593\u6295\u4e0e\u3057\u3001\u6025\u901f\u306b\u6e1b\u91cf\u3059\u308b", "\u5c11\u91cf\u3092\u6c38\u4e45\u306b\u7d9a\u3051\u308b", "\u5185\u670d\u306e\u307f\u3067\u884c\u3046", "\u70b9\u6ef4\u306f\u7981\u5fcc\u3067\u3042\u308b"], correctIndex: 0, explanation: "\u30d1\u30eb\u30b9\u7642\u6cd5\u306f\u5927\u91cf\u3092\u77ed\u671f\u9593\u6295\u4e0e\u3057\u3001\u6e1b\u91cf\u3059\u308b\u65b9\u6cd5\u3002" },
+  { id: 23, category: "\u526f\u4f5c\u7528", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6027\u7cd6\u5c3f\u75c5\u306e\u7279\u5fb4\u3068\u3057\u3066\u6b63\u3057\u3044\u306e\u306f\u3069\u308c\uff1f", options: ["\u98df\u5f8c\u9ad8\u8840\u7cd6\u304c\u76ee\u7acb\u3064\u3053\u3068\u304c\u3042\u308b", "\u5fc5\u305a\u7a7a\u8179\u6642\u306e\u307f\u9ad8\u8840\u7cd6\u306b\u306a\u308b", "\u30a4\u30f3\u30b9\u30ea\u30f3\u306f\u7d76\u5bfe\u4e0d\u8981", "\u98df\u4e8b\u7642\u6cd5\u306f\u7121\u52b9\u3067\u3042\u308b"], correctIndex: 0, explanation: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6027\u7cd6\u5c3f\u75c5\u3067\u306f\u98df\u5f8c\u9ad8\u8840\u7cd6\u304c\u76ee\u7acb\u3064\u3053\u3068\u304c\u3042\u308b\u3002" },
+  { id: 24, category: "\u7279\u6b8a\u72b6\u6cc1", question: "\u59b9\u5a20\u4e2d\u306e\u30b9\u30c6\u30ed\u30a4\u30c9\u4f7f\u7528\u306b\u3064\u3044\u3066\u6b63\u3057\u3044\u306e\u306f\u3069\u308c\uff1f", options: ["\u75be\u60a3\u306b\u3088\u3063\u3066\u306f\u4f7f\u7528\u3055\u308c\u308b\u3053\u3068\u304c\u3042\u308b", "\u7d76\u5bfe\u306b\u7981\u5fcc\u3067\u3042\u308b", "\u5927\u91cf\u6295\u4e0e\u304c\u63a8\u5968\u3055\u308c\u308b", "\u80ce\u5150\u306b\u5f71\u97ff\u306f\u306a\u3044"], correctIndex: 0, explanation: "\u75be\u60a3\u306b\u3088\u3063\u3066\u306f\u6177\u91cd\u306b\u4f7f\u7528\u3055\u308c\u308b\u3053\u3068\u304c\u3042\u308b\u3002" },
+  { id: 25, category: "\u5168\u8eab\u7ba1\u7406", question: "\u30b9\u30c6\u30ed\u30a4\u30c9\u6295\u4e0e\u4e2d\u306e\u4e00\u822c\u7684\u306a\u526f\u4f5c\u7528\u3068\u3057\u3066\u9069\u5207\u306a\u306e\u306f\u3069\u308c\uff1f", options: ["\u8840\u5727\u4e0a\u6607", "\u5fc5\u767a\u306e\u5f90\u8108", "\u4e0d\u53ef\u9006\u7684\u306a\u4f4e\u4f53\u6e29\u306e\u307f", "\u6025\u901f\u306a\u8131\u6c34\u306e\u307f"], correctIndex: 0, explanation: "\u6c34\u5206\u8caf\u7559\u306a\u3069\u306b\u3088\u308a\u8840\u5727\u304c\u4e0a\u6607\u3059\u308b\u3053\u3068\u304c\u3042\u308b\u3002" },
 ];
 
 const DIRECTIONS = [
@@ -44,7 +45,7 @@ const DIRECTIONS = [
 const state = {
   board: [],
   modalCellIndex: null,
-  step: "question",
+  step: "question", // "question" | "wrong" | "result"
   selectedOption: null,
   history: [],
   log: ["\u958b\u59cb\u524d\uff1a\u597d\u304d\u306a\u30de\u30b9\u3092\u9078\u3073\u3001\u6b63\u7b54\u30c1\u30fc\u30e0\u3092\u53f3\u5074\u30d1\u30cd\u30eb\u3067\u78ba\u5b9a\u3059\u308b\u65b9\u5f0f\u3067\u3059\u3002"],
@@ -52,6 +53,9 @@ const state = {
   teamNames: TEAM_DEFS.map((team) => team.name),
   collapseAnimating: false,
   collapseFinished: false,
+  // 各セルの回答試行回数と使用済み選択肢を追跡
+  attempts: {},        // { [cellIndex]: number }
+  usedOptions: {},     // { [cellIndex]: number[] }
 };
 
 const els = {
@@ -99,6 +103,8 @@ function cloneHistoryEntry() {
     board: cloneBoard(state.board),
     log: [...state.log],
     pendingAssignment: clonePendingAssignment(state.pendingAssignment),
+    attempts: { ...state.attempts },
+    usedOptions: JSON.parse(JSON.stringify(state.usedOptions)),
   };
 }
 
@@ -219,26 +225,52 @@ function closeModal() {
   render();
 }
 
+function getAttemptCount(cellIndex) {
+  return state.attempts[cellIndex] || 0;
+}
+
+function getUsedOptions(cellIndex) {
+  return state.usedOptions[cellIndex] || [];
+}
+
 function answerQuestion(optionIndex) {
   state.selectedOption = optionIndex;
-  const modalCell = state.modalCellIndex !== null ? state.board[state.modalCellIndex] : null;
+  const cellIndex = state.modalCellIndex;
+  const modalCell = cellIndex !== null ? state.board[cellIndex] : null;
   if (!modalCell) return;
 
+  // 回答試行回数を増やす
+  state.attempts[cellIndex] = (state.attempts[cellIndex] || 0) + 1;
+  if (!state.usedOptions[cellIndex]) {
+    state.usedOptions[cellIndex] = [];
+  }
+  state.usedOptions[cellIndex].push(optionIndex);
+
+  const attemptCount = state.attempts[cellIndex];
+
   if (optionIndex === modalCell.correctIndex) {
+    // 正解
     state.pendingAssignment = {
-      cellIndex: state.modalCellIndex,
+      cellIndex: cellIndex,
       selectedOption: optionIndex,
       questionId: modalCell.id,
       category: modalCell.category,
       question: modalCell.question,
       explanation: modalCell.explanation,
     };
-    setLogEntry(`${modalCell.id}\u756a\uff1a\u6b63\u89e3\u3002\u53f3\u5074\u30d1\u30cd\u30eb\u3067\u7372\u5f97\u30c1\u30fc\u30e0\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044\u3002`);
+    setLogEntry(`${modalCell.id}\u756a\uff1a\u6b63\u89e3\uff08${attemptCount}\u56de\u76ee\uff09\u3002\u53f3\u5074\u30d1\u30cd\u30eb\u3067\u7372\u5f97\u30c1\u30fc\u30e0\u3092\u9078\u629e\u3057\u3066\u304f\u3060\u3055\u3044\u3002`);
     closeModal();
     return;
   }
 
-  state.step = "result";
+  // 不正解
+  if (attemptCount >= MAX_ATTEMPTS) {
+    // 3回目の誤答 → 不正解パネル確定
+    state.step = "result";
+  } else {
+    // 1・2回目の誤答 → 再挑戦可能
+    state.step = "wrong";
+  }
   renderModal();
 }
 
@@ -252,13 +284,20 @@ function commitMiss() {
       ? { ...cell, status: "missed", owner: null, selectedOption: state.selectedOption }
       : { ...cell }
   ));
-  setLogEntry(`${modalCell.id}\u756a\uff1a\u4e0d\u6b63\u89e3\u3002\u7070\u8272\u30d1\u30cd\u30eb\u3068\u3057\u3066\u56fa\u5b9a\u3002`);
+  setLogEntry(`${modalCell.id}\u756a\uff1a${MAX_ATTEMPTS}\u56de\u4e0d\u6b63\u89e3\u3002\u7070\u8272\u30d1\u30cd\u30eb\u3068\u3057\u3066\u56fa\u5b9a\u3002`);
   closeModal();
 
   // 全マス埋まったか確認して崩れ落ち演出
   if (isGameEnded()) {
     setTimeout(() => triggerCollapseAnimation(), 600);
   }
+}
+
+function retryQuestion() {
+  // 再挑戦：questionステップに戻す（選択肢の使用済み状態はusedOptionsで管理）
+  state.step = "question";
+  state.selectedOption = null;
+  renderModal();
 }
 
 function assignToTeam(teamId) {
@@ -293,8 +332,6 @@ function assignToTeam(teamId) {
 // --- 崩れ落ち演出 ---
 function triggerCollapseAnimation() {
   const { winners } = getWinners();
-  // 最多チームが1つの場合のみ、そのチームのパネルを残す
-  // 引き分けの場合は全チームのパネルが崩れ落ちる（不正解パネルのみ残る）
   const winnerIds = winners.length === 1 ? [winners[0].id] : [];
 
   state.collapseAnimating = true;
@@ -306,24 +343,17 @@ function triggerCollapseAnimation() {
     const cellIndex = Number(button.dataset.cellIndex);
     const cell = state.board[cellIndex];
 
-    // 不正解パネル(missed)は崩れない
     if (cell.status === "missed") return;
-
-    // 勝者チームのパネルは崩れない
     if (cell.status === "claimed" && winnerIds.includes(cell.owner)) return;
 
-    // それ以外は崩れ落ちる対象
     collapseTargets.push({ button, cellIndex });
   });
 
-  // 各パネルに崩れ落ちアニメーションを適用（下の行から順に、少しずつ遅延）
   collapseTargets.forEach((target) => {
     const row = Math.floor(target.cellIndex / BOARD_SIZE);
-    // 下の行ほど先に落ちる（row 4 -> 0 の順）
     const delay = (BOARD_SIZE - 1 - row) * 150 + Math.random() * 100;
     const face = target.button.querySelector(".cell-face");
     if (face) {
-      // ランダムな回転と横方向のずれを付与
       const rotateDir = Math.random() > 0.5 ? 1 : -1;
       const rotateDeg = 15 + Math.random() * 30;
       const translateX = (Math.random() - 0.5) * 60;
@@ -336,7 +366,6 @@ function triggerCollapseAnimation() {
     }
   });
 
-  // アニメーション完了後にフラグを解除し、崩れ完了状態にする
   const maxDelay = (BOARD_SIZE - 1) * 150 + 100 + 1500;
   setTimeout(() => {
     state.collapseAnimating = false;
@@ -354,6 +383,8 @@ function resetGame() {
   state.pendingAssignment = null;
   state.collapseAnimating = false;
   state.collapseFinished = false;
+  state.attempts = {};
+  state.usedOptions = {};
   state.log = ["\u30b2\u30fc\u30e0\u3092\u30ea\u30bb\u30c3\u30c8\u3057\u307e\u3057\u305f\u3002"];
   hideModal();
   render();
@@ -366,6 +397,8 @@ function undoLast() {
   state.board = cloneBoard(latest.board);
   state.log = [...latest.log];
   state.pendingAssignment = clonePendingAssignment(latest.pendingAssignment);
+  state.attempts = { ...latest.attempts };
+  state.usedOptions = JSON.parse(JSON.stringify(latest.usedOptions));
   state.modalCellIndex = null;
   state.step = "question";
   state.selectedOption = null;
@@ -437,14 +470,12 @@ function renderBoard() {
   const pendingCell = getPendingCell();
   const gameEnded = isGameEnded();
 
-  // 崩れ落ち完了後に残すべきパネルを判定
   const { winners } = getWinners();
   const winnerIdsForCollapse = (gameEnded && winners.length === 1) ? [winners[0].id] : [];
 
   els.boardGrid.innerHTML = state.board.map((cell, index) => {
     const isPending = pendingCell && pendingCell.index === index;
 
-    // 崩れ落ち完了後: 勝者パネルと不正解パネル以外は空セルとして描画
     if (state.collapseFinished && cell.status === "claimed" && !winnerIdsForCollapse.includes(cell.owner)) {
       return `
         <button class="cell-button" type="button" data-cell-index="${index}" disabled>
@@ -479,11 +510,18 @@ function renderBoard() {
       `;
     }
 
+    // hiddenセル：回答試行中の場合はバッジ表示
+    const attemptCount = getAttemptCount(index);
+    const attemptBadge = attemptCount > 0
+      ? `<div class="cell-attempt-badge">${attemptCount}/${MAX_ATTEMPTS}</div>`
+      : "";
+
     return `
       <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.collapseAnimating ? "disabled" : ""}>
-        <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""}">
+        <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
           <div class="cell-number">${cell.id}</div>
+          ${attemptBadge}
         </div>
       </button>
     `;
@@ -518,35 +556,35 @@ function renderScore() {
           </div>
           <div class="score-value">${counts[team.id]}</div>
         </div>
-        ${isTop ? `<div class="score-top-label" style="color:${team.border};">\u30c8\u30c3\u30d7</div>` : ""}
+        ${isTop ? `<div class="score-top-label">\u30c8\u30c3\u30d7</div>` : ""}
       </article>
     `;
   }).join("") + `
-    <article class="score-card score-card-missed" style="background:rgba(100,116,139,0.15); border-color:rgba(148,163,184,0.3);">
+    <article class="score-card" style="background:rgba(100,116,139,0.12); border-color:rgba(148,163,184,0.3);">
       <div class="score-row">
         <div class="score-team-box">
           <div class="team-name-top" style="margin-bottom:0;">
-            <span class="color-dot" style="background:#64748b; box-shadow:0 0 12px rgba(100,116,139,0.5);"></span>
+            <span class="color-dot" style="background:#64748b;"></span>
             <div>
-              <div class="score-team-title" style="color:#94a3b8;">\u4e0d\u6b63\u89e3</div>
+              <div class="score-team-title">\u4e0d\u6b63\u89e3</div>
               <div class="score-team-sub">\u56fa\u5b9a\u30d1\u30cd\u30eb</div>
             </div>
           </div>
         </div>
-        <div class="score-value" style="color:#94a3b8;">${missedCount}</div>
+        <div class="score-value">${missedCount}</div>
       </div>
     </article>
   `;
 }
 
 function renderAssignmentPanel() {
-  const pendingCell = getPendingCell();
   const teams = getTeams();
+  const pendingCell = getPendingCell();
 
-  if (!pendingCell || !state.pendingAssignment) {
+  if (!state.pendingAssignment) {
     els.assignmentPanel.innerHTML = `
       <div class="assignment-idle">
-        \u6b63\u89e3\u304c\u51fa\u308b\u3068\u3001\u3053\u306e\u30d1\u30cd\u30eb\u306b\u5bfe\u8c61\u554f\u984c\u304c\u8868\u793a\u3055\u308c\u308b\u3067\u3054\u3056\u308b\u3002\u3053\u3053\u3067\u53f8\u4f1a\u8005\u304c4\u30c1\u30fc\u30e0\u306e\u3046\u3061\u6b63\u7b54\u30c1\u30fc\u30e0\u3092\u9078\u629e\u3059\u308b\u3068\u3001\u76e4\u9762\u3078\u53cd\u6620\u3055\u308c\u308b\u3002
+        <p>\u6b63\u89e3\u304c\u51fa\u308b\u3068\u3001\u3053\u306e\u30d1\u30cd\u30eb\u306b\u5bfe\u8c61\u554f\u984c\u304c\u8868\u793a\u3055\u308c\u308b\u3067\u3054\u3056\u308b\u3002\u3053\u3053\u3067\u53f8\u4f1a\u8005\u304c4\u30c1\u30fc\u30e0\u306e\u3046\u3061\u6b63\u7b54\u30c1\u30fc\u30e0\u3092\u9078\u629e\u3059\u308b\u3068\u3001\u76e4\u9762\u3078\u53cd\u6620\u3055\u308c\u308b\u3002</p>
       </div>
     `;
     return;
@@ -555,7 +593,7 @@ function renderAssignmentPanel() {
   els.assignmentPanel.innerHTML = `
     <div class="assignment-box">
       <div class="assignment-meta">\u78ba\u5b9a\u5f85\u3061</div>
-      <div class="assignment-question-id">\u554f\u984c ${pendingCell.id}</div>
+      <div class="assignment-question-id">\u554f\u984c ${state.pendingAssignment.questionId}</div>
       <div class="assignment-category">${escapeHtml(state.pendingAssignment.category)}</div>
       <div class="assignment-question">${escapeHtml(state.pendingAssignment.question)}</div>
     </div>
@@ -590,22 +628,32 @@ function renderModal() {
     return;
   }
 
+  const cellIndex = state.modalCellIndex;
+  const attemptCount = getAttemptCount(cellIndex);
+  const usedOpts = getUsedOptions(cellIndex);
+  const remaining = MAX_ATTEMPTS - attemptCount;
+
   els.modalLabel.textContent = `QUESTION ${modalCell.id}`;
   els.modalCategory.textContent = modalCell.category;
   els.modalTitle.textContent = modalCell.question;
 
-  els.modalOptions.innerHTML = modalCell.options.map((option, index) => {
+  // 回答権バッジ表示
+  const attemptInfoHtml = `<div class="modal-attempt-info">\u56de\u7b54\u6a29\uff1a<span class="attempt-remaining ${remaining <= 1 ? "attempt-danger" : ""}">${remaining}</span> / ${MAX_ATTEMPTS}</div>`;
+
+  els.modalOptions.innerHTML = attemptInfoHtml + modalCell.options.map((option, index) => {
     const selected = state.selectedOption === index;
     const isCorrect = modalCell.correctIndex === index;
-    const reveal = state.step !== "question";
+    const isUsed = usedOpts.includes(index);
+    const reveal = state.step === "result"; // 3回目不正解時のみ正解を表示
 
     let border = "rgba(255,255,255,0.1)";
     let background = "rgba(255,255,255,0.04)";
+    let disabled = false;
 
     if (reveal && isCorrect) {
       border = "rgba(134,239,172,0.8)";
       background = "rgba(34,197,94,0.16)";
-    } else if (reveal && selected && !isCorrect) {
+    } else if ((reveal || state.step === "wrong") && selected && !isCorrect) {
       border = "rgba(252,165,165,0.75)";
       background = "rgba(239,68,68,0.16)";
     } else if (selected) {
@@ -613,11 +661,24 @@ function renderModal() {
       background = "rgba(14,165,233,0.16)";
     }
 
+    // 使用済み選択肢はdisabled（questionステップ時）
+    if (state.step === "question" && isUsed) {
+      disabled = true;
+      border = "rgba(255,255,255,0.06)";
+      background = "rgba(239,68,68,0.06)";
+    }
+
+    // wrong/resultステップでは全選択肢disabled
+    if (state.step !== "question") {
+      disabled = true;
+    }
+
     return `
-      <button class="option-btn" type="button" data-option-index="${index}" ${state.step !== "question" ? "disabled" : ""} style="border-color:${border}; background:${background};">
+      <button class="option-btn ${isUsed && state.step === "question" ? "option-used" : ""}" type="button" data-option-index="${index}" ${disabled ? "disabled" : ""} style="border-color:${border}; background:${background};">
         <div class="option-row">
           <span class="option-letter">${String.fromCharCode(65 + index)}</span>
           <span>${escapeHtml(option)}</span>
+          ${isUsed && state.step === "question" ? '<span class="option-used-mark">\u2716</span>' : ""}
         </div>
       </button>
     `;
@@ -628,7 +689,8 @@ function renderModal() {
     button.addEventListener("click", () => answerQuestion(Number(button.dataset.optionIndex)));
   });
 
-  if (state.step !== "question") {
+  // 解説表示：3回目不正解時のみ
+  if (state.step === "result") {
     els.modalExplanation.classList.remove("hidden");
     els.modalExplanation.innerHTML = `
       <div class="assignment-meta" style="color: var(--text-sub); letter-spacing:0.2em;">\u89e3\u8aac</div>
@@ -639,16 +701,29 @@ function renderModal() {
     els.modalExplanation.innerHTML = "";
   }
 
+  // 結果バー
   if (state.step === "result") {
+    // 3回目不正解 → 確定ボタン
     els.modalResultBar.classList.remove("hidden");
     els.modalResultBar.innerHTML = `
       <div>
-        <div class="result-title">\u4e0d\u6b63\u89e3</div>
+        <div class="result-title">${MAX_ATTEMPTS}\u56de\u4e0d\u6b63\u89e3</div>
         <div class="result-desc">\u3053\u306e\u30de\u30b9\u306f\u7070\u8272\u306e\u4e0d\u6b63\u89e3\u30d1\u30cd\u30eb\u3068\u3057\u3066\u56fa\u5b9a\u3055\u308c\u307e\u3059\u3002</div>
       </div>
       <button id="commitMissBtn" class="btn btn-danger" type="button">\u78ba\u5b9a\u3059\u308b</button>
     `;
     document.getElementById("commitMissBtn").addEventListener("click", commitMiss);
+  } else if (state.step === "wrong") {
+    // 1・2回目不正解 → 再挑戦ボタン（解説は非表示）
+    els.modalResultBar.classList.remove("hidden");
+    els.modalResultBar.innerHTML = `
+      <div>
+        <div class="result-title">\u4e0d\u6b63\u89e3</div>
+        <div class="result-desc">\u6b8b\u308a\u56de\u7b54\u6a29\uff1a${remaining} \u56de\u3002\u3082\u3046\u4e00\u5ea6\u6311\u6226\u3067\u304d\u307e\u3059\u3002</div>
+      </div>
+      <button id="retryBtn" class="btn btn-retry" type="button">\u3082\u3046\u4e00\u5ea6\u6311\u6226</button>
+    `;
+    document.getElementById("retryBtn").addEventListener("click", retryQuestion);
   } else {
     els.modalResultBar.classList.add("hidden");
     els.modalResultBar.innerHTML = "";
