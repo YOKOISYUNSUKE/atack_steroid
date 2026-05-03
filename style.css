@@ -367,14 +367,18 @@ h2 {
   opacity: 0.18;
 }
 
+/* --- 不正解パネル（灰色） --- */
 .cell-missed {
-  background: rgba(51, 65, 85, 0.78);
+  background: rgba(100, 116, 139, 0.85);
+  border-color: rgba(148, 163, 184, 0.5);
   color: var(--text-sub);
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.3);
 }
 
 .no-point-mark {
   font-size: 2rem;
   font-weight: 900;
+  color: #94a3b8;
 }
 
 .no-point-label {
@@ -383,6 +387,27 @@ h2 {
   letter-spacing: 0.2em;
   color: var(--text-muted);
   font-weight: 700;
+}
+
+/* --- 崩れ落ちアニメーション --- */
+@keyframes cellCollapse {
+  0% {
+    transform: translateY(0) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  15% {
+    transform: translateY(-8px) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(calc(100vh)) translateX(var(--collapse-tx, 0px)) rotate(var(--collapse-rotate, 25deg));
+    opacity: 0;
+  }
+}
+
+.cell-face.cell-collapse {
+  animation: cellCollapse 1.1s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
 }
 
 .side-column,
