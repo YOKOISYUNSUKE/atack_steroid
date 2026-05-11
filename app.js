@@ -151,6 +151,17 @@ function getSingleWinner() {
   return isGameEnded() && winners.length === 1 ? winners[0] : null;
 }
 
+// 同点優勝を含む全勝者を返す（1チームでも複数チームでも）
+function getAllWinners() {
+  const { winners } = getWinners();
+  if (!isGameEnded() || winners.length === 0) return [];
+  return winners;
+}
+
+function getWinnerIds() {
+  return getAllWinners().map(w => w.id);
+}
+
 function applyOthelloCapture(board, placedIndex, teamId) {
   const next = cloneBoard(board);
   next[placedIndex].status = "claimed";
@@ -322,8 +333,7 @@ function assignToTeam(teamId) {
 
 // --- 崩れ落ち演出 ---
 function triggerCollapseAnimation() {
-  const { winners } = getWinners();
-  const winnerIds = winners.length === 1 ? [winners[0].id] : [];
+  const winnerIds = getWinnerIds();
 
   state.collapseAnimating = true;
 
@@ -372,8 +382,7 @@ function revealWinnerImage() {
   // board-artはそのまま残す（敗北チームの箇所はSVGアートが見える）
   // 優勝マスのセルだけ透明にし、そのセルの背景にimage.pngの対応部分を表示
   const buttons = els.boardGrid.querySelectorAll(".cell-button");
-  const { winners } = getWinners();
-  const winnerIds = winners.length === 1 ? [winners[0].id] : [];
+  const winnerIds = getWinnerIds();
 
   // グリッドのサイズ情報を取得してbackground-positionを計算
   const gridRect = els.boardGrid.getBoundingClientRect();
@@ -458,18 +467,18 @@ function getStatusText() {
   }
 
   if (isGameEnded()) {
-    const singleWinner = getSingleWinner();
+    const allWinners = getAllWinners();
     const { winners } = getWinners();
-    if (state.collapseFinished && singleWinner) {
-      return `${singleWinner.name} の勝利！ 獲得マスが透明になりました。この画像は何でしょう？`;
+    if (allWinners.length === 0) {
+      return "全問終了。勝者なし。";
     }
-    if (singleWinner) {
-      return `${singleWinner.name} の勝利！ 獲得マスと不正解パネルが残り、他は崩れ落ちました。`;
+    const winnerNames = allWinners.map(w => w.name).join(" / ");
+    const isTie = allWinners.length > 1;
+    const prefix = isTie ? `同点優勝（${winnerNames}）` : `${winnerNames} の勝利！`;
+    if (state.collapseFinished) {
+      return `${prefix} 獲得マスが透明になりました。この画像は何でしょう？`;
     }
-    if (winners.length > 1) {
-      return `引き分け（${winners.map((w) => w.name).join(" / ")}）。不正解パネルのみ残りました。`;
-    }
-    return "全問終了。勝者なし。";
+    return `${prefix} 獲得マスと不正解パネルが残り、他は崩れ落ちました。`;
   }
 
   const unresolved = state.board.filter((cell) => cell.status === "hidden").length;
@@ -508,12 +517,10 @@ function renderTeamNameInputs() {
 
 function renderBoard() {
   const teamLookup = getTeamLookup();
-  const singleWinner = getSingleWinner();
   const pendingCell = getPendingCell();
   const gameEnded = isGameEnded();
 
-  const { winners } = getWinners();
-  const winnerIdsForCollapse = (gameEnded && winners.length === 1) ? [winners[0].id] : [];
+  const winnerIdsForCollapse = gameEnded ? getWinnerIds() : [];
 
   els.boardGrid.innerHTML = state.board.map((cell, index) => {
     const isPending = pendingCell && pendingCell.index === index;
@@ -528,7 +535,7 @@ function renderBoard() {
 
     if (cell.status === "claimed") {
       const team = teamLookup[cell.owner];
-      const revealArt = gameEnded && singleWinner && singleWinner.id === cell.owner;
+      const revealArt = gameEnded && winnerIdsForCollapse.includes(cell.owner);
       const isRevealedImage = state.collapseFinished && revealArt;
 
       // 崩れ落ち完了後の優勝マス：背景画像を表示
