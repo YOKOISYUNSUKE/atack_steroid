@@ -264,11 +264,29 @@ h2 {
   padding: 12px;
 }
 
+/* --- 背景画像レイヤー（最背面） --- */
+.board-image {
+  position: absolute;
+  inset: 12px;
+  overflow: hidden;
+  border-radius: 20px;
+  z-index: 0;
+}
+
+.board-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .board-art {
   position: absolute;
   inset: 12px;
   overflow: hidden;
   border-radius: 20px;
+  z-index: 1;
+  transition: opacity 0.8s ease;
 }
 
 .board-art svg {
@@ -284,9 +302,15 @@ h2 {
   background: rgba(0, 0, 0, 0.1);
 }
 
+/* ゲーム終了後、board-artを非表示にして背景画像を見せる */
+.board-art.art-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .board-grid {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 8px;
@@ -377,6 +401,19 @@ h2 {
 .cell-reveal .cell-owned-team,
 .cell-reveal .cell-number {
   opacity: 0.18;
+}
+
+/* --- 崩れ落ち後に優勝マスを透明にして画像を見せる --- */
+.cell-face.cell-transparent {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+}
+
+.cell-face.cell-transparent .cell-owned-label,
+.cell-face.cell-transparent .cell-owned-team,
+.cell-face.cell-transparent .cell-number {
+  opacity: 0;
 }
 
 /* --- 回答試行済みバッジ（盤面上） --- */
