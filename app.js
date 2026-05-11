@@ -369,15 +369,14 @@ function triggerCollapseAnimation() {
 
 // --- 崩れ落ち完了後に優勝マスを透明にして背景画像を見せる ---
 function revealWinnerImage() {
-  // board-artを非表示にして背景画像を見せる
-  if (els.boardArt) {
-    els.boardArt.classList.add("art-hidden");
-  }
-
-  // 優勝マスのセルを透明にする（段階的に）
+  // board-artはそのまま残す（敗北チームの箇所はSVGアートが見える）
+  // 優勝マスのセルだけ透明にし、そのセルの背景にimage.pngの対応部分を表示
   const buttons = els.boardGrid.querySelectorAll(".cell-button");
   const { winners } = getWinners();
   const winnerIds = winners.length === 1 ? [winners[0].id] : [];
+
+  // グリッドのサイズ情報を取得してbackground-positionを計算
+  const gridRect = els.boardGrid.getBoundingClientRect();
 
   let delay = 0;
   buttons.forEach((button) => {
@@ -387,8 +386,20 @@ function revealWinnerImage() {
     if (cell.status === "claimed" && winnerIds.includes(cell.owner)) {
       const face = button.querySelector(".cell-face");
       if (face) {
+        // セルの位置からbackground-positionを計算
+        const row = Math.floor(cellIndex / BOARD_SIZE);
+        const col = cellIndex % BOARD_SIZE;
+        // 5x5グリッドなので、各セルの位置を%で計算
+        const bgPosX = col * 25; // 0%, 25%, 50%, 75%, 100%
+        const bgPosY = row * 25;
+
         setTimeout(() => {
           face.classList.add("cell-transparent");
+          // 背景画像をセルに設定（対応する部分だけ表示）
+          face.style.backgroundImage = "url('image.png')";
+          face.style.backgroundSize = `${BOARD_SIZE * 100}% ${BOARD_SIZE * 100}%`;
+          face.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
+          face.style.backgroundRepeat = "no-repeat";
         }, delay);
         delay += 100;
       }
@@ -518,12 +529,28 @@ function renderBoard() {
     if (cell.status === "claimed") {
       const team = teamLookup[cell.owner];
       const revealArt = gameEnded && singleWinner && singleWinner.id === cell.owner;
+      const isRevealedImage = state.collapseFinished && revealArt;
+
+      // 崩れ落ち完了後の優勝マス：背景画像を表示
+      let faceStyle = "";
+      if (isRevealedImage) {
+        const row = Math.floor(index / BOARD_SIZE);
+        const col = index % BOARD_SIZE;
+        const bgPosX = col * 25;
+        const bgPosY = row * 25;
+        faceStyle = `background-image:url('image.png'); background-size:${BOARD_SIZE * 100}% ${BOARD_SIZE * 100}%; background-position:${bgPosX}% ${bgPosY}%; background-repeat:no-repeat; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
+      } else if (revealArt) {
+        faceStyle = `background:rgba(255,255,255,0.02); border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
+      } else {
+        faceStyle = `background:${team.color}; border-color:${team.border}; box-shadow:inset 0 0 0 1px ${team.border};`;
+      }
+
       return `
         <button class="cell-button" type="button" data-cell-index="${index}" ${cell.status !== "hidden" || state.pendingAssignment ? "disabled" : ""}>
-          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isPending ? "pending-highlight" : ""}" style="background:${revealArt ? "rgba(255,255,255,0.02)" : team.color}; border-color:${revealArt ? "rgba(255,255,255,0.55)" : team.border}; box-shadow:${revealArt ? "inset 0 0 0 1px rgba(255,255,255,0.08)" : `inset 0 0 0 1px ${team.border}`};">
-            <div class="cell-owned-label">OWNED</div>
+          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""}" style="${faceStyle}">
+            ${isRevealedImage ? "" : `<div class="cell-owned-label">OWNED</div>
             <div class="cell-owned-team">${escapeHtml(team.name)}</div>
-            <div class="cell-number">${cell.id}</div>
+            <div class="cell-number">${cell.id}</div>`}
           </div>
         </button>
       `;
