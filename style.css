@@ -163,7 +163,7 @@ h2 {
 .team-name-grid {
   margin-top: 22px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -248,12 +248,13 @@ h2 {
 
 .board-area {
   margin-top: 24px;
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) 320px;
-  gap: 18px;
+  display: flex;
+  justify-content: center;
 }
 
 .board-wrap {
+  width: 100%;
+  max-width: 780px;
   position: relative;
   aspect-ratio: 1 / 1;
   border-radius: var(--radius-xl);
@@ -262,6 +263,41 @@ h2 {
   background: rgba(2, 6, 23, 0.92);
   box-shadow: var(--shadow);
   padding: 12px;
+}
+
+/* --- チーム紹介カード統合スコア --- */
+.team-name-card.is-top-card {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.08);
+}
+
+.team-name-score.score-highlight {
+  background: rgba(34, 211, 238, 0.2);
+  border-color: rgba(103, 232, 249, 0.4);
+  color: #cffafe;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.team-top-badge {
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  color: #fbbf24;
+  text-align: center;
+}
+
+.team-missed-card {
+  background: rgba(100, 116, 139, 0.15) !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
+.team-missed-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+  padding: 10px 0 2px;
 }
 
 /* --- 背景画像レイヤー（最背面） --- */
@@ -830,8 +866,7 @@ h2 {
 }
 
 @media (max-width: 1180px) {
-  .layout,
-  .board-area {
+  .layout {
     grid-template-columns: 1fr;
   }
 
@@ -842,7 +877,7 @@ h2 {
 
 @media (max-width: 900px) {
   .team-name-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .hero,

@@ -61,7 +61,7 @@ const els = {
   boardGrid: document.getElementById("boardGrid"),
   boardArt: document.getElementById("boardArt"),
   boardImage: document.getElementById("boardImage"),
-  scoreGrid: document.getElementById("scoreGrid"),
+
   statusText: document.getElementById("statusText"),
   teamNameGrid: document.getElementById("teamNameGrid"),
   assignmentPanel: document.getElementById("assignmentPanel"),
@@ -487,15 +487,24 @@ function getStatusText() {
 
 function renderTeamNameInputs() {
   const teams = getTeams();
-  const counts = getCounts();
-  els.teamNameGrid.innerHTML = teams.map((team, index) => `
-    <label class="team-name-card">
+  const { counts, topCount } = getWinners();
+  const missedCount = state.board.filter((cell) => cell.status === "missed").length;
+  const gameEnded = isGameEnded();
+
+  els.teamNameGrid.innerHTML = teams.map((team, index) => {
+    const isTop = counts[team.id] === topCount && topCount > 0;
+    const cardBg = isTop
+      ? `linear-gradient(135deg, ${team.soft}, rgba(255,255,255,0.05))`
+      : "rgba(0, 0, 0, 0.15)";
+    const cardBorder = isTop ? team.border : "rgba(255, 255, 255, 0.1)";
+    return `
+    <label class="team-name-card ${isTop ? 'is-top-card' : ''}" style="background:${cardBg}; border-color:${cardBorder};">
       <div class="team-name-top">
         <div class="team-name-label-row">
-          <span class="color-dot" style="background:${team.color}"></span>
+          <span class="color-dot" style="background:${team.color}; ${isTop ? `box-shadow:0 0 12px ${team.color};` : ''}"></span>
           <span>TEAM ${index + 1}</span>
         </div>
-        <span class="team-name-score">${counts[team.id]}</span>
+        <span class="team-name-score ${isTop ? 'score-highlight' : ''}">${counts[team.id]}</span>
       </div>
       <input
         class="team-name-input"
@@ -503,8 +512,21 @@ function renderTeamNameInputs() {
         value="${escapeHtml(team.name)}"
         data-team-index="${index}"
       />
+      ${isTop ? '<div class="team-top-badge">TOP</div>' : ''}
     </label>
-  `).join("");
+  `;
+  }).join("") + `
+    <label class="team-name-card team-missed-card">
+      <div class="team-name-top">
+        <div class="team-name-label-row">
+          <span class="color-dot" style="background:#64748b;"></span>
+          <span>MISS</span>
+        </div>
+        <span class="team-name-score">${missedCount}</span>
+      </div>
+      <div class="team-missed-label">不正解パネル</div>
+    </label>
+  `;
 
   els.teamNameGrid.querySelectorAll(".team-name-input").forEach((input) => {
     input.addEventListener("input", (event) => {
@@ -599,7 +621,9 @@ function renderBoard() {
   });
 }
 
-function renderScore() {
+/* renderScore は廃止 - スコアはチーム紹介欄に統合済み */
+/*
+function renderScore_REMOVED() {
   const teams = getTeams();
   const { counts, topCount } = getWinners();
   const missedCount = state.board.filter((cell) => cell.status === "missed").length;
@@ -640,6 +664,7 @@ function renderScore() {
     </article>
   `;
 }
+*/
 
 function renderAssignmentPanel() {
   const teams = getTeams();
@@ -800,7 +825,6 @@ function hideModal() {
 function render() {
   renderTeamNameInputs();
   renderBoard();
-  renderScore();
   renderAssignmentPanel();
   els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
