@@ -379,13 +379,13 @@ function triggerCollapseAnimation() {
 
 // --- 崩れ落ち完了後に優勝マスを透明にして背景画像を見せる ---
 function revealWinnerImage() {
-  // board-artはそのまま残す（敗北チームの箇所はSVGアートが見える）
-  // 優勝マスのセルだけ透明にし、そのセルの背景にimage.pngの対応部分を表示
+  // 優勝マスのセルだけ透明にし、背景のvideo要素が透けて見えるようにする
+  // board-artに穴を開けて、優勝マスの位置だけvideoが見えるようにする
   const buttons = els.boardGrid.querySelectorAll(".cell-button");
   const winnerIds = getWinnerIds();
 
-  // グリッドのサイズ情報を取得してbackground-positionを計算
-  const gridRect = els.boardGrid.getBoundingClientRect();
+  // board-artにCSS maskを適用して優勝マス位置を穴あきにする
+  applyBoardArtMask(winnerIds);
 
   let delay = 0;
   buttons.forEach((button) => {
@@ -395,25 +395,54 @@ function revealWinnerImage() {
     if (cell.status === "claimed" && winnerIds.includes(cell.owner)) {
       const face = button.querySelector(".cell-face");
       if (face) {
-        // セルの位置からbackground-positionを計算
-        const row = Math.floor(cellIndex / BOARD_SIZE);
-        const col = cellIndex % BOARD_SIZE;
-        // 5x5グリッドなので、各セルの位置を%で計算
-        const bgPosX = col * 25; // 0%, 25%, 50%, 75%, 100%
-        const bgPosY = row * 25;
-
         setTimeout(() => {
           face.classList.add("cell-transparent");
-          // 背景画像をセルに設定（対応する部分だけ表示）
-          face.style.backgroundImage = "url('image.png')";
-          face.style.backgroundSize = `${BOARD_SIZE * 100}% ${BOARD_SIZE * 100}%`;
-          face.style.backgroundPosition = `${bgPosX}% ${bgPosY}%`;
-          face.style.backgroundRepeat = "no-repeat";
         }, delay);
         delay += 100;
       }
     }
   });
+}
+
+function applyBoardArtMask(winnerIds) {
+  // board-artにCSS maskを適用し、優勝マスの位置を透明にする
+  // これにより優勝マス位置ではboard-imageのvideoが見える
+  const rects = [];
+  const cellPercent = 100 / BOARD_SIZE; // 20%
+  const gap = 1; // gap分の余白（%）
+
+  state.board.forEach((cell, index) => {
+    if (cell.status === "claimed" && winnerIds.includes(cell.owner)) {
+      const row = Math.floor(index / BOARD_SIZE);
+      const col = index % BOARD_SIZE;
+      const x = col * cellPercent + gap / 2;
+      const y = row * cellPercent + gap / 2;
+      const w = cellPercent - gap;
+      const h = cellPercent - gap;
+      rects.push({ x, y, w, h });
+    }
+  });
+
+  // Render the SVG with real transparent holes so WebKit/Chromium alpha masks work.
+  let svgMask = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">`;
+  svgMask += `<defs><mask id="winner-holes" maskUnits="userSpaceOnUse">`;
+  svgMask += `<rect width="100" height="100" fill="white"/>`;
+  rects.forEach(r => {
+    svgMask += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2" fill="black"/>`;
+  });
+  svgMask += `</mask></defs>`;
+  svgMask += `<rect width="100" height="100" fill="white" mask="url(#winner-holes)"/>`;
+  svgMask += `</svg>`;
+
+  const encoded = encodeURIComponent(svgMask);
+  const maskUrl = `url("data:image/svg+xml,${encoded}")`;
+
+  els.boardArt.style.maskImage = maskUrl;
+  els.boardArt.style.webkitMaskImage = maskUrl;
+  els.boardArt.style.maskSize = "100% 100%";
+  els.boardArt.style.webkitMaskSize = "100% 100%";
+  els.boardArt.style.maskRepeat = "no-repeat";
+  els.boardArt.style.webkitMaskRepeat = "no-repeat";
 }
 
 function resetGame() {
@@ -430,6 +459,8 @@ function resetGame() {
   state.log = ["ゲームをリセットしました。"];
   if (els.boardArt) {
     els.boardArt.classList.remove("art-hidden");
+    els.boardArt.style.maskImage = "";
+    els.boardArt.style.webkitMaskImage = "";
   }
   hideModal();
   render();
@@ -451,6 +482,8 @@ function undoLast() {
   state.collapseFinished = false;
   if (els.boardArt) {
     els.boardArt.classList.remove("art-hidden");
+    els.boardArt.style.maskImage = "";
+    els.boardArt.style.webkitMaskImage = "";
   }
   hideModal();
   render();
@@ -476,7 +509,7 @@ function getStatusText() {
     const isTie = allWinners.length > 1;
     const prefix = isTie ? `同点優勝（${winnerNames}）` : `${winnerNames} の勝利！`;
     if (state.collapseFinished) {
-      return `${prefix} 獲得マスが透明になりました。この画像は何でしょう？`;
+      return `${prefix} 獲得マスが透明になりました。この動画は何でしょう？`;
     }
     return `${prefix} 獲得マスと不正解パネルが残り、他は崩れ落ちました。`;
   }
@@ -560,14 +593,10 @@ function renderBoard() {
       const revealArt = gameEnded && winnerIdsForCollapse.includes(cell.owner);
       const isRevealedImage = state.collapseFinished && revealArt;
 
-      // 崩れ落ち完了後の優勝マス：背景画像を表示
+      // 崩れ落ち完了後の優勝マス：透明にしてvideoを見せる
       let faceStyle = "";
       if (isRevealedImage) {
-        const row = Math.floor(index / BOARD_SIZE);
-        const col = index % BOARD_SIZE;
-        const bgPosX = col * 25;
-        const bgPosY = row * 25;
-        faceStyle = `background-image:url('image.png'); background-size:${BOARD_SIZE * 100}% ${BOARD_SIZE * 100}%; background-position:${bgPosX}% ${bgPosY}%; background-repeat:no-repeat; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
+        faceStyle = `background:transparent; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
       } else if (revealArt) {
         faceStyle = `background:rgba(255,255,255,0.02); border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
       } else {
@@ -829,6 +858,14 @@ function render() {
   els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
   renderModal();
+
+  // collapseFinished時はboard-artのmaskを再適用
+  if (state.collapseFinished) {
+    const winnerIds = getWinnerIds();
+    if (winnerIds.length > 0) {
+      applyBoardArtMask(winnerIds);
+    }
+  }
 }
 
 function escapeHtml(value) {
