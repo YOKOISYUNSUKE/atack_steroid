@@ -51,6 +51,7 @@ const state = {
   log: ["開始前：好きなマスを選び、正答チームを右側パネルで確定する方式です。"],
   pendingAssignment: null,
   teamNames: TEAM_DEFS.map((team) => team.name),
+  collapseReady: false,
   collapseAnimating: false,
   collapseFinished: false,
   attempts: {},
@@ -75,6 +76,7 @@ const els = {
   modalOptions: document.getElementById("modalOptions"),
   modalExplanation: document.getElementById("modalExplanation"),
   modalResultBar: document.getElementById("modalResultBar"),
+  winnerOverlay: document.getElementById("winnerOverlay"),
 };
 
 function createInitialBoard() {
@@ -247,6 +249,11 @@ function getQuestionExplanation(questionId) {
   return QUIZ_EXPLANATIONS[questionId] || "";
 }
 
+function prepareCollapseStart() {
+  state.collapseReady = getAllWinners().length > 0;
+  render();
+}
+
 function answerQuestion(optionIndex) {
   state.selectedOption = optionIndex;
   const cellIndex = state.modalCellIndex;
@@ -297,7 +304,7 @@ function commitMiss() {
   closeModal();
 
   if (isGameEnded()) {
-    setTimeout(() => triggerCollapseAnimation(), 600);
+    prepareCollapseStart();
   }
 }
 
@@ -331,15 +338,18 @@ function assignToTeam(teamId) {
   closeModal();
 
   if (isGameEnded()) {
-    setTimeout(() => triggerCollapseAnimation(), 600);
+    prepareCollapseStart();
   }
 }
 
 // --- 崩れ落ち演出 ---
 function triggerCollapseAnimation() {
   const winnerIds = getWinnerIds();
+  if (!isGameEnded() || winnerIds.length === 0 || state.collapseAnimating || state.collapseFinished) return;
 
+  state.collapseReady = false;
   state.collapseAnimating = true;
+  render();
 
   const buttons = els.boardGrid.querySelectorAll(".cell-button");
   const collapseTargets = [];
@@ -456,6 +466,7 @@ function resetGame() {
   state.selectedOption = null;
   state.history = [];
   state.pendingAssignment = null;
+  state.collapseReady = false;
   state.collapseAnimating = false;
   state.collapseFinished = false;
   state.attempts = {};
@@ -482,6 +493,7 @@ function undoLast() {
   state.modalCellIndex = null;
   state.step = "question";
   state.selectedOption = null;
+  state.collapseReady = false;
   state.collapseAnimating = false;
   state.collapseFinished = false;
   if (els.boardArt) {
@@ -512,6 +524,9 @@ function getStatusText() {
     const winnerNames = allWinners.map(w => w.name).join(" / ");
     const isTie = allWinners.length > 1;
     const prefix = isTie ? `同点優勝（${winnerNames}）` : `${winnerNames} の勝利！`;
+    if (state.collapseReady) {
+      return `${prefix} 画面を左クリックすると結果演出を開始します。`;
+    }
     if (state.collapseFinished) {
       return `${prefix} 獲得マスが透明になりました。この動画は何でしょう？`;
     }
@@ -738,6 +753,30 @@ function renderAssignmentPanel() {
   });
 }
 
+function renderWinnerOverlay() {
+  if (!els.winnerOverlay) return;
+
+  const winners = getAllWinners();
+  if (!state.collapseReady || winners.length === 0) {
+    els.winnerOverlay.classList.add("hidden");
+    els.winnerOverlay.setAttribute("aria-hidden", "true");
+    els.winnerOverlay.innerHTML = "";
+    return;
+  }
+
+  const isTie = winners.length > 1;
+  const winnerNames = winners.map((winner) => escapeHtml(winner.name)).join(" / ");
+  els.winnerOverlay.classList.remove("hidden");
+  els.winnerOverlay.setAttribute("aria-hidden", "false");
+  els.winnerOverlay.innerHTML = `
+    <div class="winner-announcement" role="button" tabindex="0">
+      <div class="winner-label">${isTie ? "同点優勝" : "優勝"}</div>
+      <div class="winner-name">${winnerNames}</div>
+      <div class="winner-hint">左クリックでマスを落とす</div>
+    </div>
+  `;
+}
+
 function renderModal() {
   const modalCell = state.modalCellIndex !== null ? state.board[state.modalCellIndex] : null;
   if (!modalCell) {
@@ -870,6 +909,7 @@ function render() {
   renderTeamNameInputs();
   renderBoard();
   renderAssignmentPanel();
+  renderWinnerOverlay();
   els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
   renderModal();
@@ -896,6 +936,18 @@ function wireEvents() {
   els.resetBtn.addEventListener("click", resetGame);
   els.undoBtn.addEventListener("click", undoLast);
   els.closeModalBtn.addEventListener("click", closeModal);
+
+  els.winnerOverlay.addEventListener("click", (event) => {
+    if (event.button !== 0) return;
+    triggerCollapseAnimation();
+  });
+
+  els.winnerOverlay.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      triggerCollapseAnimation();
+    }
+  });
 
   els.modalOverlay.addEventListener("click", (event) => {
     if (event.target === els.modalOverlay) {
