@@ -1,5 +1,14 @@
 const BOARD_SIZE = 5;
 const MAX_ATTEMPTS = 3;
+const ATTACK_CHANCE_TRIGGER_COUNT = 17;
+
+const BONUS_QUESTION = {
+  id: "attack-chance",
+  category: "アタックチャンス",
+  question: "本日の講師横井先生が妻と出会った場所は？",
+  options: ["ガラシャ", "KG' BAR", "北九州総合病院", "前世"],
+  correctIndex: 1,
+};
 
 const TEAM_DEFS = [
   { id: "red", name: "チームA", color: "#ef4444", soft: "rgba(239,68,68,0.18)", border: "rgba(254,202,202,0.9)" },
@@ -50,7 +59,13 @@ const state = {
   history: [],
   log: ["開始前：好きなマスを選び、正答チームを右側パネルで確定する方式です。"],
   pendingAssignment: null,
+  pendingStealTeamId: null,
   teamNames: TEAM_DEFS.map((team) => team.name),
+  attackChanceReady: false,
+  attackChanceUsed: false,
+  bonusModalOpen: false,
+  bonusStep: "question",
+  bonusSelectedOption: null,
   collapseReady: false,
   collapseAnimating: false,
   collapseFinished: false,
@@ -76,6 +91,7 @@ const els = {
   modalOptions: document.getElementById("modalOptions"),
   modalExplanation: document.getElementById("modalExplanation"),
   modalResultBar: document.getElementById("modalResultBar"),
+  attackChanceOverlay: document.getElementById("attackChanceOverlay"),
   winnerOverlay: document.getElementById("winnerOverlay"),
 };
 
@@ -106,6 +122,12 @@ function cloneHistoryEntry() {
     board: cloneBoard(state.board),
     log: [...state.log],
     pendingAssignment: clonePendingAssignment(state.pendingAssignment),
+    pendingStealTeamId: state.pendingStealTeamId,
+    attackChanceReady: state.attackChanceReady,
+    attackChanceUsed: state.attackChanceUsed,
+    bonusModalOpen: state.bonusModalOpen,
+    bonusStep: state.bonusStep,
+    bonusSelectedOption: state.bonusSelectedOption,
     attempts: { ...state.attempts },
     usedOptions: JSON.parse(JSON.stringify(state.usedOptions)),
   };
@@ -146,6 +168,10 @@ function getPendingCell() {
 
 function isGameEnded() {
   return state.board.every((cell) => cell.status !== "hidden");
+}
+
+function getResolvedCount() {
+  return state.board.filter((cell) => cell.status !== "hidden").length;
 }
 
 function getSingleWinner() {
@@ -219,7 +245,12 @@ function setLogEntry(entry) {
 }
 
 function openCell(index) {
+  if (state.pendingStealTeamId) {
+    stealCell(index);
+    return;
+  }
   if (state.pendingAssignment) return;
+  if (state.attackChanceReady || state.bonusModalOpen) return;
   if (state.collapseAnimating) return;
   if (state.board[index].status !== "hidden") return;
   state.modalCellIndex = index;
@@ -230,6 +261,14 @@ function openCell(index) {
 }
 
 function closeModal() {
+  if (state.bonusModalOpen) {
+    if (state.bonusStep === "question" && !state.pendingAssignment && !state.attackChanceUsed) {
+      state.attackChanceReady = true;
+    }
+    state.bonusModalOpen = false;
+    state.bonusStep = "question";
+    state.bonusSelectedOption = null;
+  }
   state.modalCellIndex = null;
   state.step = "question";
   state.selectedOption = null;
@@ -247,6 +286,27 @@ function getUsedOptions(cellIndex) {
 
 function getQuestionExplanation(questionId) {
   return QUIZ_EXPLANATIONS[questionId] || "";
+}
+
+function maybePrepareAttackChance() {
+  if (state.attackChanceUsed || state.attackChanceReady || state.pendingStealTeamId) return;
+  if (isGameEnded()) return;
+  if (getResolvedCount() !== ATTACK_CHANCE_TRIGGER_COUNT) return;
+
+  state.attackChanceReady = true;
+  setLogEntry("17問終了。アタックチャンスが発生しました。");
+  render();
+}
+
+function startBonusQuestion() {
+  if (!state.attackChanceReady || state.attackChanceUsed) return;
+
+  state.attackChanceReady = false;
+  state.bonusModalOpen = true;
+  state.bonusStep = "question";
+  state.bonusSelectedOption = null;
+  render();
+  showModal();
 }
 
 function prepareCollapseStart() {
@@ -290,6 +350,29 @@ function answerQuestion(optionIndex) {
   renderModal();
 }
 
+function answerBonusQuestion(optionIndex) {
+  state.bonusSelectedOption = optionIndex;
+
+  if (optionIndex === BONUS_QUESTION.correctIndex) {
+    state.pendingAssignment = {
+      type: "bonusSteal",
+      selectedOption: optionIndex,
+      questionId: "アタックチャンス",
+      category: BONUS_QUESTION.category,
+      question: BONUS_QUESTION.question,
+    };
+    state.bonusStep = "correct";
+    setLogEntry("アタックチャンス正解。右側パネルで正解チームを選択してください。");
+    render();
+    return;
+  }
+
+  state.attackChanceUsed = true;
+  state.bonusStep = "wrong";
+  setLogEntry("アタックチャンス不正解。アタックチャンスは終了しました。");
+  renderModal();
+}
+
 function commitMiss() {
   const modalCell = state.modalCellIndex !== null ? state.board[state.modalCellIndex] : null;
   if (!modalCell) return;
@@ -305,6 +388,8 @@ function commitMiss() {
 
   if (isGameEnded()) {
     prepareCollapseStart();
+  } else {
+    maybePrepareAttackChance();
   }
 }
 
@@ -315,6 +400,17 @@ function retryQuestion() {
 }
 
 function assignToTeam(teamId) {
+  if (state.pendingAssignment?.type === "bonusSteal") {
+    state.pendingStealTeamId = teamId;
+    state.pendingAssignment = null;
+    state.attackChanceUsed = true;
+    closeModal();
+    const teamName = getTeamLookup()[teamId]?.name ?? teamId;
+    setLogEntry(`アタックチャンス：${teamName}が奪うマスを選択します。`);
+    render();
+    return;
+  }
+
   const sourceIndex = state.pendingAssignment?.cellIndex ?? state.modalCellIndex;
   const assignmentCell = sourceIndex !== null ? state.board[sourceIndex] : null;
   const answerIndex = state.pendingAssignment?.selectedOption ?? state.selectedOption;
@@ -339,7 +435,30 @@ function assignToTeam(teamId) {
 
   if (isGameEnded()) {
     prepareCollapseStart();
+  } else {
+    maybePrepareAttackChance();
   }
+}
+
+function stealCell(index) {
+  const targetCell = state.board[index];
+  const teamId = state.pendingStealTeamId;
+  if (!teamId || !targetCell || targetCell.status !== "claimed" || targetCell.owner === teamId) return;
+
+  state.history.push(cloneHistoryEntry());
+
+  const prepared = state.board.map((cell, cellIndex) => (
+    cellIndex === index
+      ? { ...cell, owner: teamId }
+      : { ...cell }
+  ));
+  const { next, flipped } = applyOthelloCapture(prepared, index, teamId);
+  const teamName = getTeamLookup()[teamId]?.name ?? teamId;
+
+  state.board = next;
+  state.pendingStealTeamId = null;
+  setLogEntry(`アタックチャンス：${teamName}が${targetCell.id}番を奪取。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
+  render();
 }
 
 // --- 崩れ落ち演出 ---
@@ -466,6 +585,12 @@ function resetGame() {
   state.selectedOption = null;
   state.history = [];
   state.pendingAssignment = null;
+  state.pendingStealTeamId = null;
+  state.attackChanceReady = false;
+  state.attackChanceUsed = false;
+  state.bonusModalOpen = false;
+  state.bonusStep = "question";
+  state.bonusSelectedOption = null;
   state.collapseReady = false;
   state.collapseAnimating = false;
   state.collapseFinished = false;
@@ -488,6 +613,12 @@ function undoLast() {
   state.board = cloneBoard(latest.board);
   state.log = [...latest.log];
   state.pendingAssignment = clonePendingAssignment(latest.pendingAssignment);
+  state.pendingStealTeamId = latest.pendingStealTeamId;
+  state.attackChanceReady = latest.attackChanceReady;
+  state.attackChanceUsed = latest.attackChanceUsed;
+  state.bonusModalOpen = latest.bonusModalOpen;
+  state.bonusStep = latest.bonusStep;
+  state.bonusSelectedOption = latest.bonusSelectedOption;
   state.attempts = { ...latest.attempts };
   state.usedOptions = JSON.parse(JSON.stringify(latest.usedOptions));
   state.modalCellIndex = null;
@@ -506,6 +637,15 @@ function undoLast() {
 }
 
 function getStatusText() {
+  if (state.pendingStealTeamId) {
+    const teamName = getTeamLookup()[state.pendingStealTeamId]?.name ?? state.pendingStealTeamId;
+    return `アタックチャンス：${teamName}が奪うマスを選択してください。`;
+  }
+
+  if (state.attackChanceReady) {
+    return "17問終了。アタックチャンスパネルを左クリックしてください。";
+  }
+
   const pendingCell = getPendingCell();
   if (pendingCell) {
     return `${pendingCell.id}番が正解済み。右側パネルで獲得チームを選択してください。`;
@@ -611,6 +751,7 @@ function renderBoard() {
       const team = teamLookup[cell.owner];
       const revealArt = gameEnded && winnerIdsForCollapse.includes(cell.owner);
       const isRevealedImage = state.collapseFinished && revealArt;
+      const canStealTarget = Boolean(state.pendingStealTeamId && cell.owner !== state.pendingStealTeamId);
 
       // 崩れ落ち完了後の優勝マス：透明にしてvideoを見せる
       let faceStyle = "";
@@ -623,8 +764,8 @@ function renderBoard() {
       }
 
       return `
-        <button class="cell-button" type="button" data-cell-index="${index}" ${cell.status !== "hidden" || state.pendingAssignment ? "disabled" : ""}>
-          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""}" style="${faceStyle}">
+        <button class="cell-button" type="button" data-cell-index="${index}" ${canStealTarget ? "" : "disabled"}>
+          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""} ${canStealTarget ? "steal-target" : ""}" style="${faceStyle}">
             ${isRevealedImage ? "" : `<div class="cell-owned-label">OWNED</div>
             <div class="cell-owned-team">${escapeHtml(team.name)}</div>
             <div class="cell-number">${cell.id}</div>`}
@@ -651,7 +792,7 @@ function renderBoard() {
       : "";
 
     return `
-      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.collapseAnimating ? "disabled" : ""}>
+      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceReady || state.collapseAnimating ? "disabled" : ""}>
         <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
           <div class="cell-number">${cell.id}</div>
@@ -664,7 +805,12 @@ function renderBoard() {
   els.boardGrid.querySelectorAll(".cell-button").forEach((button) => {
     if (button.disabled) return;
     button.addEventListener("click", () => {
-      openCell(Number(button.dataset.cellIndex));
+      const cellIndex = Number(button.dataset.cellIndex);
+      if (state.pendingStealTeamId) {
+        stealCell(cellIndex);
+        return;
+      }
+      openCell(cellIndex);
     });
   });
 }
@@ -717,6 +863,20 @@ function renderScore_REMOVED() {
 function renderAssignmentPanel() {
   const teams = getTeams();
 
+  if (state.pendingStealTeamId) {
+    const team = getTeamLookup()[state.pendingStealTeamId];
+    const stealTargets = state.board.filter((cell) => cell.status === "claimed" && cell.owner !== state.pendingStealTeamId);
+    els.assignmentPanel.innerHTML = `
+      <div class="assignment-box assignment-box-attack">
+        <div class="assignment-meta">アタックチャンス</div>
+        <div class="assignment-question-id">${escapeHtml(team?.name ?? state.pendingStealTeamId)}</div>
+        <div class="assignment-question">奪うマスを盤面から選択してください。</div>
+        <div class="assignment-category">選択可能マス：${stealTargets.length}</div>
+      </div>
+    `;
+    return;
+  }
+
   if (!state.pendingAssignment) {
     els.assignmentPanel.innerHTML = `
       <div class="assignment-idle">
@@ -727,8 +887,8 @@ function renderAssignmentPanel() {
   }
 
   els.assignmentPanel.innerHTML = `
-    <div class="assignment-box">
-      <div class="assignment-meta">確定待ち</div>
+    <div class="assignment-box ${state.pendingAssignment.type === "bonusSteal" ? "assignment-box-attack" : ""}">
+      <div class="assignment-meta">${state.pendingAssignment.type === "bonusSteal" ? "アタックチャンス正解" : "確定待ち"}</div>
       <div class="assignment-question-id">問題 ${state.pendingAssignment.questionId}</div>
       <div class="assignment-category">${escapeHtml(state.pendingAssignment.category)}</div>
       <div class="assignment-question">${escapeHtml(state.pendingAssignment.question)}</div>
@@ -740,7 +900,7 @@ function renderAssignmentPanel() {
             <span class="color-dot" style="background:${team.color}; box-shadow:0 0 16px ${team.color};"></span>
             <div>
               <div class="assignment-team-title">${escapeHtml(team.name)}</div>
-              <div class="assignment-team-sub">このチームに確定する</div>
+              <div class="assignment-team-sub">${state.pendingAssignment.type === "bonusSteal" ? "このチームがマスを奪う" : "このチームに確定する"}</div>
             </div>
           </div>
         </button>
@@ -751,6 +911,28 @@ function renderAssignmentPanel() {
   els.assignmentPanel.querySelectorAll(".assignment-team-btn").forEach((button) => {
     button.addEventListener("click", () => assignToTeam(button.dataset.teamId));
   });
+}
+
+function renderAttackChanceOverlay() {
+  if (!els.attackChanceOverlay) return;
+
+  if (!state.attackChanceReady) {
+    els.attackChanceOverlay.classList.add("hidden");
+    els.attackChanceOverlay.setAttribute("aria-hidden", "true");
+    els.attackChanceOverlay.innerHTML = "";
+    return;
+  }
+
+  els.attackChanceOverlay.classList.remove("hidden");
+  els.attackChanceOverlay.setAttribute("aria-hidden", "false");
+  els.attackChanceOverlay.innerHTML = `
+    <div class="attack-chance-card" role="button" tabindex="0">
+      <img class="attack-chance-avatar" src="image.png" alt="" />
+      <div class="attack-chance-kicker">17問終了</div>
+      <div class="attack-chance-title">アタックチャンス</div>
+      <div class="attack-chance-hint">左クリックでボーナス問題へ</div>
+    </div>
+  `;
 }
 
 function renderWinnerOverlay() {
@@ -777,7 +959,80 @@ function renderWinnerOverlay() {
   `;
 }
 
+function renderBonusModal() {
+  els.modalLabel.textContent = "ATTACK CHANCE";
+  els.modalCategory.textContent = BONUS_QUESTION.category;
+  els.modalTitle.textContent = BONUS_QUESTION.question;
+
+  const reveal = state.bonusStep === "correct" || state.bonusStep === "wrong";
+  els.modalOptions.innerHTML = BONUS_QUESTION.options.map((option, index) => {
+    const selected = state.bonusSelectedOption === index;
+    const isCorrect = BONUS_QUESTION.correctIndex === index;
+
+    let border = "rgba(255,255,255,0.1)";
+    let background = "rgba(255,255,255,0.04)";
+
+    if (reveal && isCorrect) {
+      border = "rgba(134,239,172,0.8)";
+      background = "rgba(34,197,94,0.16)";
+    } else if (reveal && selected && !isCorrect) {
+      border = "rgba(252,165,165,0.75)";
+      background = "rgba(239,68,68,0.16)";
+    }
+
+    return `
+      <button class="option-btn" type="button" data-option-index="${index}" ${reveal ? "disabled" : ""} style="border-color:${border}; background:${background};">
+        <div class="option-row">
+          <span class="option-letter">${index + 1}</span>
+          <span>${escapeHtml(option)}</span>
+        </div>
+      </button>
+    `;
+  }).join("");
+
+  els.modalOptions.querySelectorAll(".option-btn").forEach((button) => {
+    if (button.disabled) return;
+    button.addEventListener("click", () => answerBonusQuestion(Number(button.dataset.optionIndex)));
+  });
+
+  els.modalExplanation.classList.add("hidden");
+  els.modalExplanation.innerHTML = "";
+
+  if (state.bonusStep === "correct") {
+    els.modalResultBar.classList.remove("hidden");
+    els.modalResultBar.classList.add("result-bar-correct");
+    els.modalResultBar.innerHTML = `
+      <div>
+        <div class="correct-title">正解</div>
+        <div class="result-desc">右側パネルで正解チームを選択してください。</div>
+      </div>
+      <button id="continueAssignmentBtn" class="btn btn-secondary" type="button">チーム選択へ</button>
+    `;
+    document.getElementById("continueAssignmentBtn").addEventListener("click", closeModal);
+  } else if (state.bonusStep === "wrong") {
+    els.modalResultBar.classList.remove("hidden");
+    els.modalResultBar.classList.remove("result-bar-correct");
+    els.modalResultBar.innerHTML = `
+      <div>
+        <div class="result-title">不正解</div>
+        <div class="result-desc">アタックチャンスは終了です。</div>
+      </div>
+      <button id="closeBonusBtn" class="btn btn-secondary" type="button">閉じる</button>
+    `;
+    document.getElementById("closeBonusBtn").addEventListener("click", closeModal);
+  } else {
+    els.modalResultBar.classList.add("hidden");
+    els.modalResultBar.classList.remove("result-bar-correct");
+    els.modalResultBar.innerHTML = "";
+  }
+}
+
 function renderModal() {
+  if (state.bonusModalOpen) {
+    renderBonusModal();
+    return;
+  }
+
   const modalCell = state.modalCellIndex !== null ? state.board[state.modalCellIndex] : null;
   if (!modalCell) {
     hideModal();
@@ -909,6 +1164,7 @@ function render() {
   renderTeamNameInputs();
   renderBoard();
   renderAssignmentPanel();
+  renderAttackChanceOverlay();
   renderWinnerOverlay();
   els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
@@ -936,6 +1192,18 @@ function wireEvents() {
   els.resetBtn.addEventListener("click", resetGame);
   els.undoBtn.addEventListener("click", undoLast);
   els.closeModalBtn.addEventListener("click", closeModal);
+
+  els.attackChanceOverlay.addEventListener("click", (event) => {
+    if (event.button !== 0) return;
+    startBonusQuestion();
+  });
+
+  els.attackChanceOverlay.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      startBonusQuestion();
+    }
+  });
 
   els.winnerOverlay.addEventListener("click", (event) => {
     if (event.button !== 0) return;

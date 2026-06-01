@@ -399,6 +399,10 @@ h2 {
   box-shadow: 0 0 0 2px rgba(110, 231, 183, 0.95);
 }
 
+.cell-face.steal-target {
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.95), 0 0 24px rgba(251, 191, 36, 0.4);
+}
+
 .cell-kicker {
   font-size: 10px;
   letter-spacing: 0.24em;
@@ -680,6 +684,11 @@ h2 {
   border-color: rgba(167, 243, 208, 0.2);
 }
 
+.assignment-box-attack {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(253, 230, 138, 0.35);
+}
+
 .assignment-meta {
   font-size: 12px;
   letter-spacing: 0.2em;
@@ -762,6 +771,71 @@ h2 {
   padding: 24px;
   background: rgba(2, 6, 23, 0.72);
   backdrop-filter: blur(6px);
+}
+
+.attack-chance-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 920;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 6, 23, 0.74);
+  backdrop-filter: blur(6px);
+}
+
+.attack-chance-card {
+  position: relative;
+  width: min(920px, 100%);
+  min-height: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 28px;
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.92), rgba(2, 6, 23, 0.96));
+  box-shadow: var(--shadow);
+  user-select: none;
+}
+
+.attack-chance-avatar {
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  border: 4px solid rgba(253, 230, 138, 0.95);
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.attack-chance-kicker {
+  color: #fde68a;
+  font-size: clamp(1.2rem, 3vw, 2rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+}
+
+.attack-chance-title {
+  margin-top: 18px;
+  color: #ffffff;
+  font-size: clamp(4rem, 12vw, 8rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-shadow: 0 16px 44px rgba(0, 0, 0, 0.55);
+}
+
+.attack-chance-hint {
+  margin-top: 26px;
+  color: #fef3c7;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
 }
 
 .winner-announcement {
