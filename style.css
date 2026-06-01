@@ -826,7 +826,7 @@ h2 {
 
 #modalTitle {
   margin-top: 8px;
-  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-size: clamp(2.7rem, 6vw, 4rem);
   line-height: 1.5;
 }
 
@@ -843,6 +843,7 @@ h2 {
   padding: 16px;
   text-align: left;
   color: white;
+  font-size: 2rem;
   transition: 0.18s ease;
 }
 
@@ -861,14 +862,14 @@ h2 {
 }
 
 .option-letter {
-  width: 28px;
-  height: 28px;
+  width: 56px;
+  height: 56px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 24px;
   font-weight: 900;
   flex: 0 0 auto;
 }
@@ -876,6 +877,14 @@ h2 {
 .explanation-box,
 .result-bar {
   margin-top: 20px;
+}
+
+.modal-card .explanation-box {
+  font-size: 2rem;
+}
+
+.modal-card .explanation-box .assignment-meta {
+  font-size: 24px;
 }
 
 .result-bar {
