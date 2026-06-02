@@ -977,6 +977,8 @@ h2 {
 }
 
 .result-bar.result-bar-correct {
+  justify-content: center;
+  text-align: center;
   background: rgba(34, 197, 94, 0.14);
   border-color: rgba(134, 239, 172, 0.35);
 }

@@ -79,7 +79,6 @@ const els = {
   boardArt: document.getElementById("boardArt"),
   boardImage: document.getElementById("boardImage"),
 
-  statusText: document.getElementById("statusText"),
   teamNameGrid: document.getElementById("teamNameGrid"),
   resetBtn: document.getElementById("resetBtn"),
   undoBtn: document.getElementById("undoBtn"),
@@ -637,47 +636,6 @@ function undoLast() {
   render();
 }
 
-function getStatusText() {
-  if (state.pendingStealTeamId) {
-    const teamName = getTeamLookup()[state.pendingStealTeamId]?.name ?? state.pendingStealTeamId;
-    return `アタックチャンス：${teamName}が奪うマスを選択してください。`;
-  }
-
-  if (state.attackChanceReady) {
-    return "17問終了。アタックチャンスパネルを左クリックしてください。";
-  }
-
-  const pendingCell = getPendingCell();
-  if (pendingCell) {
-    return `${pendingCell.id}番が正解済み。A/B/C/Dキーで獲得チームを選択してください。`;
-  }
-
-  if (state.collapseAnimating) {
-    return "結果演出中...";
-  }
-
-  if (isGameEnded()) {
-    const allWinners = getAllWinners();
-    const { winners } = getWinners();
-    if (allWinners.length === 0) {
-      return "全問終了。勝者なし。";
-    }
-    const winnerNames = allWinners.map(w => w.name).join(" / ");
-    const isTie = allWinners.length > 1;
-    const prefix = isTie ? `同点優勝（${winnerNames}）` : `${winnerNames} の勝利！`;
-    if (state.collapseReady) {
-      return `${prefix} 画面を左クリックすると結果演出を開始します。`;
-    }
-    if (state.collapseFinished) {
-      return `${prefix} 獲得マスが透明になりました。この動画は何でしょう？`;
-    }
-    return `${prefix} 獲得マスと不正解パネルが残り、他は崩れ落ちました。`;
-  }
-
-  const unresolved = state.board.filter((cell) => cell.status === "hidden").length;
-  return `残り ${unresolved} 問。正解した問題は、右側の固定パネルで獲得チームを確定します。`;
-}
-
 function renderTeamNameInputs() {
   const teams = getTeams();
   const { counts, topCount } = getWinners();
@@ -704,6 +662,8 @@ function renderTeamNameInputs() {
         type="text"
         value="${escapeHtml(team.name)}"
         data-team-index="${index}"
+        autocomplete="off"
+        spellcheck="false"
       />
       ${isTop ? '<div class="team-top-badge">TOP</div>' : ''}
     </label>
@@ -725,7 +685,20 @@ function renderTeamNameInputs() {
     input.addEventListener("input", (event) => {
       const teamIndex = Number(event.currentTarget.dataset.teamIndex);
       state.teamNames[teamIndex] = event.currentTarget.value;
-      render();
+      renderBoard();
+      renderWinnerOverlay();
+      renderModal();
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+
+      event.preventDefault();
+      const inputs = [...els.teamNameGrid.querySelectorAll(".team-name-input")];
+      const currentIndex = inputs.indexOf(event.currentTarget);
+      const nextInput = inputs[currentIndex + 1] ?? inputs[0];
+      nextInput.focus();
+      nextInput.select();
     });
   });
 }
@@ -1100,7 +1073,6 @@ function render() {
   renderBoard();
   renderAttackChanceOverlay();
   renderWinnerOverlay();
-  els.statusText.textContent = getStatusText();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
   renderModal();
 
