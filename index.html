@@ -11,12 +11,9 @@
     <main class="layout">
       <section class="main-panel panel">
         <header class="hero">
-          <div>
+          <div class="hero-title-wrap">
             <div class="pill">QUIZ APP</div>
-            <h1>アタックステロイド</h1>
-            <p class="hero-text">
-              25マスの問題を解き、正答チームがそのマスを獲得。新規獲得時には8方向でオセロ式の反転判定を行います。全マス消費後、最多獲得チームが勝利です。
-            </p>
+            <h1 class="hero-title">アタックステロイド</h1>
           </div>
           <div class="hero-actions">
             <button id="undoBtn" class="btn btn-secondary" type="button">1手戻す</button>
@@ -25,11 +22,6 @@
         </header>
 
         <section class="team-name-grid" id="teamNameGrid"></section>
-
-        <section class="status-box">
-          <span class="status-label">状態：</span>
-          <span id="statusText"></span>
-        </section>
 
         <div class="board-area">
           <div class="board-wrap">

@@ -64,10 +64,14 @@ button {
 }
 
 .hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  align-items: flex-end;
+  display: grid;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.hero-title-wrap {
+  width: 100%;
 }
 
 .pill {
@@ -97,6 +101,22 @@ h1 {
   line-height: 1.1;
 }
 
+.hero-title {
+  font-family: Impact, "Arial Black", "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  font-size: clamp(3rem, 8vw, 6.5rem);
+  line-height: 1;
+  letter-spacing: 0;
+  color: transparent;
+  background: linear-gradient(90deg, #fef08a 0%, #fb7185 22%, #a78bfa 50%, #22d3ee 76%, #fef08a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  text-shadow:
+    0 2px 0 rgba(127, 29, 29, 0.95),
+    0 8px 18px rgba(236, 72, 153, 0.55),
+    0 0 32px rgba(34, 211, 238, 0.5);
+  filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.55));
+}
+
 h2 {
   font-size: 1.4rem;
 }
@@ -116,6 +136,7 @@ h2 {
 
 .hero-actions {
   display: flex;
+  justify-content: center;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -229,21 +250,6 @@ h2 {
 .team-name-input:focus {
   outline: 2px solid rgba(125, 211, 252, 0.35);
   border-color: rgba(255, 255, 255, 0.28);
-}
-
-.status-box {
-  margin-top: 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
-  padding: 16px;
-  color: var(--text-sub);
-  line-height: 1.7;
-}
-
-.status-label {
-  font-weight: 800;
-  color: var(--text-main);
 }
 
 .board-area {
