@@ -1,0 +1,32 @@
+{
+  "name": "atack-steroid",
+  "version": "1.0.0",
+  "description": "Local quiz app",
+  "author": "local",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --dir",
+    "dist:portable": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "local.atack-steroid.quiz",
+    "productName": "Steroid Quiz",
+    "files": [
+      "index.html",
+      "style.css",
+      "app.js",
+      "explanations.js",
+      "main.js",
+      "image.png",
+      "video.mp4"
+    ],
+    "win": {
+      "signAndEditExecutable": false
+    }
+  }
+}

@@ -16,6 +16,7 @@ const TEAM_DEFS = [
   { id: "green", name: "チームC", color: "#10b981", soft: "rgba(16,185,129,0.18)", border: "rgba(167,243,208,0.9)" },
   { id: "yellow", name: "チームD", color: "#f59e0b", soft: "rgba(245,158,11,0.18)", border: "rgba(253,230,138,0.9)" },
 ];
+const TEAM_KEYS = ["a", "b", "c", "d"];
 
 const QUESTIONS = [
   { id: 1, category: "投与", question: "長期の全身性ステロイド投与を急に中止したとき、最も注意すべき状態はどれ？", options: ["副腎不全", "高カリウム血症の急速改善", "即時型アレルギー", "急性腎不全"], correctIndex: 0 },
@@ -57,7 +58,7 @@ const state = {
   step: "question",
   selectedOption: null,
   history: [],
-  log: ["開始前：好きなマスを選び、正答チームを右側パネルで確定する方式です。"],
+  log: ["開始前：好きなマスを選び、回答は1〜4キー、正答チームはA/B/C/Dキーで確定する方式です。"],
   pendingAssignment: null,
   pendingStealTeamId: null,
   teamNames: TEAM_DEFS.map((team) => team.name),
@@ -80,7 +81,6 @@ const els = {
 
   statusText: document.getElementById("statusText"),
   teamNameGrid: document.getElementById("teamNameGrid"),
-  assignmentPanel: document.getElementById("assignmentPanel"),
   resetBtn: document.getElementById("resetBtn"),
   undoBtn: document.getElementById("undoBtn"),
   modalOverlay: document.getElementById("modalOverlay"),
@@ -336,7 +336,7 @@ function answerQuestion(optionIndex) {
       category: modalCell.category,
       question: modalCell.question,
     };
-    setLogEntry(`${modalCell.id}番：正解（${attemptCount}回目）。右側パネルで獲得チームを選択してください。`);
+    setLogEntry(`${modalCell.id}番：正解（${attemptCount}回目）。A/B/C/Dキーで獲得チームを選択してください。`);
     state.step = "correct";
     render();
     return;
@@ -362,7 +362,7 @@ function answerBonusQuestion(optionIndex) {
       question: BONUS_QUESTION.question,
     };
     state.bonusStep = "correct";
-    setLogEntry("アタックチャンス正解。右側パネルで正解チームを選択してください。");
+    setLogEntry("アタックチャンス正解。A/B/C/Dキーで正解チームを選択してください。");
     render();
     return;
   }
@@ -648,7 +648,7 @@ function getStatusText() {
 
   const pendingCell = getPendingCell();
   if (pendingCell) {
-    return `${pendingCell.id}番が正解済み。右側パネルで獲得チームを選択してください。`;
+    return `${pendingCell.id}番が正解済み。A/B/C/Dキーで獲得チームを選択してください。`;
   }
 
   if (state.collapseAnimating) {
@@ -860,59 +860,6 @@ function renderScore_REMOVED() {
 }
 */
 
-function renderAssignmentPanel() {
-  const teams = getTeams();
-
-  if (state.pendingStealTeamId) {
-    const team = getTeamLookup()[state.pendingStealTeamId];
-    const stealTargets = state.board.filter((cell) => cell.status === "claimed" && cell.owner !== state.pendingStealTeamId);
-    els.assignmentPanel.innerHTML = `
-      <div class="assignment-box assignment-box-attack">
-        <div class="assignment-meta">アタックチャンス</div>
-        <div class="assignment-question-id">${escapeHtml(team?.name ?? state.pendingStealTeamId)}</div>
-        <div class="assignment-question">奪うマスを盤面から選択してください。</div>
-        <div class="assignment-category">選択可能マス：${stealTargets.length}</div>
-      </div>
-    `;
-    return;
-  }
-
-  if (!state.pendingAssignment) {
-    els.assignmentPanel.innerHTML = `
-      <div class="assignment-idle">
-        <p>正解が出ると、このパネルに対象問題が表示されるでござる。ここで司会者が4チームのうち正答チームを選択すると、盤面へ反映される。</p>
-      </div>
-    `;
-    return;
-  }
-
-  els.assignmentPanel.innerHTML = `
-    <div class="assignment-box ${state.pendingAssignment.type === "bonusSteal" ? "assignment-box-attack" : ""}">
-      <div class="assignment-meta">${state.pendingAssignment.type === "bonusSteal" ? "アタックチャンス正解" : "確定待ち"}</div>
-      <div class="assignment-question-id">問題 ${state.pendingAssignment.questionId}</div>
-      <div class="assignment-category">${escapeHtml(state.pendingAssignment.category)}</div>
-      <div class="assignment-question">${escapeHtml(state.pendingAssignment.question)}</div>
-    </div>
-    <div class="assignment-team-grid">
-      ${teams.map((team) => `
-        <button class="assignment-team-btn" type="button" data-team-id="${team.id}" style="border-color:${team.border}; background:${team.soft};">
-          <div class="team-name-top" style="margin-bottom:0; color:white;">
-            <span class="color-dot" style="background:${team.color}; box-shadow:0 0 16px ${team.color};"></span>
-            <div>
-              <div class="assignment-team-title">${escapeHtml(team.name)}</div>
-              <div class="assignment-team-sub">${state.pendingAssignment.type === "bonusSteal" ? "このチームがマスを奪う" : "このチームに確定する"}</div>
-            </div>
-          </div>
-        </button>
-      `).join("")}
-    </div>
-  `;
-
-  els.assignmentPanel.querySelectorAll(".assignment-team-btn").forEach((button) => {
-    button.addEventListener("click", () => assignToTeam(button.dataset.teamId));
-  });
-}
-
 function renderAttackChanceOverlay() {
   if (!els.attackChanceOverlay) return;
 
@@ -981,7 +928,7 @@ function renderBonusModal() {
     }
 
     return `
-      <button class="option-btn" type="button" data-option-index="${index}" ${reveal ? "disabled" : ""} style="border-color:${border}; background:${background};">
+      <button class="option-btn" type="button" data-option-index="${index}" disabled style="border-color:${border}; background:${background};">
         <div class="option-row">
           <span class="option-letter">${index + 1}</span>
           <span>${escapeHtml(option)}</span>
@@ -989,11 +936,6 @@ function renderBonusModal() {
       </button>
     `;
   }).join("");
-
-  els.modalOptions.querySelectorAll(".option-btn").forEach((button) => {
-    if (button.disabled) return;
-    button.addEventListener("click", () => answerBonusQuestion(Number(button.dataset.optionIndex)));
-  });
 
   els.modalExplanation.classList.add("hidden");
   els.modalExplanation.innerHTML = "";
@@ -1004,11 +946,9 @@ function renderBonusModal() {
     els.modalResultBar.innerHTML = `
       <div>
         <div class="correct-title">正解</div>
-        <div class="result-desc">右側パネルで正解チームを選択してください。</div>
+        <div class="result-desc">A/B/C/Dキーで正解チームを選択してください。</div>
       </div>
-      <button id="continueAssignmentBtn" class="btn btn-secondary" type="button">チーム選択へ</button>
     `;
-    document.getElementById("continueAssignmentBtn").addEventListener("click", closeModal);
   } else if (state.bonusStep === "wrong") {
     els.modalResultBar.classList.remove("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
@@ -1058,7 +998,6 @@ function renderModal() {
 
     let border = "rgba(255,255,255,0.1)";
     let background = "rgba(255,255,255,0.04)";
-    let disabled = false;
 
     if (reveal && isCorrect) {
       border = "rgba(134,239,172,0.8)";
@@ -1072,30 +1011,20 @@ function renderModal() {
     }
 
     if (state.step === "question" && isUsed) {
-      disabled = true;
       border = "rgba(255,255,255,0.06)";
       background = "rgba(239,68,68,0.06)";
     }
 
-    if (state.step !== "question") {
-      disabled = true;
-    }
-
     return `
-      <button class="option-btn ${isUsed && state.step === "question" ? "option-used" : ""}" type="button" data-option-index="${index}" ${disabled ? "disabled" : ""} style="border-color:${border}; background:${background};">
+      <button class="option-btn ${isUsed && state.step === "question" ? "option-used" : ""}" type="button" data-option-index="${index}" disabled style="border-color:${border}; background:${background};">
         <div class="option-row">
-          <span class="option-letter">${String.fromCharCode(65 + index)}</span>
+          <span class="option-letter">${index + 1}</span>
           <span>${escapeHtml(option)}</span>
           ${isUsed && state.step === "question" ? '<span class="option-used-mark">\u2716</span>' : ""}
         </div>
       </button>
     `;
   }).join("");
-
-  els.modalOptions.querySelectorAll(".option-btn").forEach((button) => {
-    if (button.disabled) return;
-    button.addEventListener("click", () => answerQuestion(Number(button.dataset.optionIndex)));
-  });
 
   if (state.step === "result" || state.step === "correct") {
     const explanation = getQuestionExplanation(modalCell.id);
@@ -1115,11 +1044,9 @@ function renderModal() {
     els.modalResultBar.innerHTML = `
       <div>
         <div class="correct-title">正解</div>
-        <div class="result-desc">解説を確認したら、右側パネルで獲得チームを選択してください。</div>
+        <div class="result-desc">解説を確認したら、A/B/C/Dキーで獲得チームを選択してください。</div>
       </div>
-      <button id="continueAssignmentBtn" class="btn btn-secondary" type="button">チーム選択へ</button>
     `;
-    document.getElementById("continueAssignmentBtn").addEventListener("click", closeModal);
   } else if (state.step === "result") {
     els.modalResultBar.classList.remove("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
@@ -1163,7 +1090,6 @@ function hideModal() {
 function render() {
   renderTeamNameInputs();
   renderBoard();
-  renderAssignmentPanel();
   renderAttackChanceOverlay();
   renderWinnerOverlay();
   els.statusText.textContent = getStatusText();
@@ -1186,6 +1112,69 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function isEditableTarget(target) {
+  return Boolean(
+    target?.closest?.("input, textarea, select, [contenteditable='true']")
+  );
+}
+
+function getOptionIndexFromKey(event) {
+  if (/^[1-4]$/.test(event.key)) {
+    return Number(event.key) - 1;
+  }
+
+  const numpadMatch = (event.code || "").match(/^Numpad([1-4])$/);
+  return numpadMatch ? Number(numpadMatch[1]) - 1 : null;
+}
+
+function getTeamIdFromKey(event) {
+  const teamIndex = TEAM_KEYS.indexOf(event.key.toLowerCase());
+  return teamIndex === -1 ? null : TEAM_DEFS[teamIndex]?.id ?? null;
+}
+
+function handleKeyboardAnswer(event) {
+  const optionIndex = getOptionIndexFromKey(event);
+  if (optionIndex === null) return false;
+
+  if (state.bonusModalOpen) {
+    if (state.bonusStep !== "question") return false;
+    event.preventDefault();
+    answerBonusQuestion(optionIndex);
+    return true;
+  }
+
+  if (els.modalOverlay.classList.contains("hidden") || state.modalCellIndex === null) {
+    return false;
+  }
+
+  if (state.step !== "question" && state.step !== "wrong") {
+    return false;
+  }
+
+  const usedOpts = getUsedOptions(state.modalCellIndex);
+  event.preventDefault();
+  if (usedOpts.includes(optionIndex)) {
+    return true;
+  }
+
+  if (state.step === "wrong") {
+    state.step = "question";
+    state.selectedOption = null;
+  }
+
+  answerQuestion(optionIndex);
+  return true;
+}
+
+function handleKeyboardTeamAssignment(event) {
+  const teamId = getTeamIdFromKey(event);
+  if (!teamId || !state.pendingAssignment) return false;
+
+  event.preventDefault();
+  assignToTeam(teamId);
+  return true;
 }
 
 function wireEvents() {
@@ -1226,7 +1215,15 @@ function wireEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !els.modalOverlay.classList.contains("hidden")) {
       closeModal();
+      return;
     }
+
+    if (isEditableTarget(event.target)) {
+      return;
+    }
+
+    if (handleKeyboardAnswer(event)) return;
+    handleKeyboardTeamAssignment(event);
   });
 }
 
