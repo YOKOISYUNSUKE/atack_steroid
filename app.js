@@ -272,6 +272,7 @@ function closeModal() {
   state.modalCellIndex = null;
   state.step = "question";
   state.selectedOption = null;
+  stopPetalAnimation();
   hideModal();
   render();
 }
@@ -986,7 +987,19 @@ function renderModal() {
 
   els.modalLabel.textContent = `QUESTION ${modalCell.id}`;
   els.modalCategory.textContent = modalCell.category;
-  els.modalTitle.textContent = modalCell.question;
+
+  // 正解時は問題文エリアを派手な演出に差し替える
+  if (state.step === "correct") {
+    els.modalTitle.innerHTML = `
+      <div class="correct-display">
+        <div class="correct-display-main">正解</div>
+
+      </div>
+    `;
+    startPetalAnimation();
+  } else {
+    els.modalTitle.textContent = modalCell.question;
+  }
 
   const attemptInfoHtml = `<div class="modal-attempt-info">回答権：<span class="attempt-remaining ${remaining <= 1 ? "attempt-danger" : ""}">${remaining}</span> / ${MAX_ATTEMPTS}</div>`;
 
@@ -1039,14 +1052,9 @@ function renderModal() {
   }
 
   if (state.step === "correct") {
-    els.modalResultBar.classList.remove("hidden");
-    els.modalResultBar.classList.add("result-bar-correct");
-    els.modalResultBar.innerHTML = `
-      <div>
-        <div class="correct-title">正解</div>
-        <div class="result-desc">解説を確認したら、A/B/C/Dキーで獲得チームを選択してください。</div>
-      </div>
-    `;
+    els.modalResultBar.classList.add("hidden");
+    els.modalResultBar.classList.remove("result-bar-correct");
+    els.modalResultBar.innerHTML = "";
   } else if (state.step === "result") {
     els.modalResultBar.classList.remove("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
@@ -1226,6 +1234,109 @@ function wireEvents() {
     handleKeyboardTeamAssignment(event);
   });
 }
+
+// ===== 花びら（confetti）アニメーション =====
+const petalCanvas = document.getElementById("petalCanvas");
+const petalCtx = petalCanvas ? petalCanvas.getContext("2d") : null;
+let petalAnimId = null;
+let petals = [];
+
+const PETAL_COLORS = [
+  "#fde68a", "#fbbf24", "#f472b6", "#fb7185", "#a78bfa",
+  "#60a5fa", "#34d399", "#f9a8d4", "#c4b5fd", "#6ee7b7",
+  "#fff",    "#fca5a5", "#fdba74", "#86efac", "#93c5fd",
+];
+
+function resizePetalCanvas() {
+  if (!petalCanvas) return;
+  petalCanvas.width = window.innerWidth;
+  petalCanvas.height = window.innerHeight;
+}
+
+function createPetal() {
+  return {
+    x: Math.random() * (petalCanvas ? petalCanvas.width : window.innerWidth),
+    y: -20 - Math.random() * 60,
+    w: 8 + Math.random() * 14,
+    h: 4 + Math.random() * 8,
+    color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
+    rotation: Math.random() * Math.PI * 2,
+    rotationSpeed: (Math.random() - 0.5) * 0.18,
+    vx: (Math.random() - 0.5) * 3.5,
+    vy: 2.5 + Math.random() * 3.5,
+    opacity: 0.85 + Math.random() * 0.15,
+    wobble: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.04 + Math.random() * 0.04,
+  };
+}
+
+function drawPetal(ctx, p) {
+  ctx.save();
+  ctx.globalAlpha = p.opacity;
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rotation);
+  ctx.fillStyle = p.color;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, p.w / 2, p.h / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function animatePetals() {
+  if (!petalCanvas || !petalCtx) return;
+  petalCtx.clearRect(0, 0, petalCanvas.width, petalCanvas.height);
+
+  // 新しい花びらを補充（最大 120枚）
+  if (petals.length < 120) {
+    const burst = Math.min(4, 120 - petals.length);
+    for (let i = 0; i < burst; i++) {
+      petals.push(createPetal());
+    }
+  }
+
+  petals.forEach((p) => {
+    p.wobble += p.wobbleSpeed;
+    p.x += p.vx + Math.sin(p.wobble) * 1.2;
+    p.y += p.vy;
+    p.rotation += p.rotationSpeed;
+    drawPetal(petalCtx, p);
+  });
+
+  // 画面外に出た花びらを削除
+  petals = petals.filter((p) => p.y < petalCanvas.height + 40);
+
+  petalAnimId = requestAnimationFrame(animatePetals);
+}
+
+function startPetalAnimation() {
+  if (!petalCanvas || !petalCtx) return;
+  if (petalAnimId) return; // 既に走行中なら再起動しない
+  resizePetalCanvas();
+  petals = [];
+  // 最初のバースト発射
+  for (let i = 0; i < 60; i++) {
+    const p = createPetal();
+    p.y = Math.random() * (petalCanvas.height * 0.5); // 画面内から少し山側に分散
+    petals.push(p);
+  }
+  petalAnimId = requestAnimationFrame(animatePetals);
+}
+
+function stopPetalAnimation() {
+  if (petalAnimId) {
+    cancelAnimationFrame(petalAnimId);
+    petalAnimId = null;
+  }
+  petals = [];
+  if (petalCanvas && petalCtx) {
+    petalCtx.clearRect(0, 0, petalCanvas.width, petalCanvas.height);
+  }
+}
+
+window.addEventListener("resize", () => {
+  if (petalAnimId) resizePetalCanvas();
+});
+// ===== END 花びらアニメーション =====
 
 function init() {
   state.board = createInitialBoard();
