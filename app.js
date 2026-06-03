@@ -1,6 +1,8 @@
 const BOARD_SIZE = 5;
 const MAX_ATTEMPTS = 3;
 const ATTACK_CHANCE_TRIGGER_COUNT = 17;
+const FLIP_ANIMATION_DURATION_MS = 500;
+const FLIP_ANIMATION_STAGGER_MS = 500;
 
 const BONUS_QUESTION = {
   id: "attack-chance",
@@ -72,7 +74,11 @@ const state = {
   collapseFinished: false,
   attempts: {},
   usedOptions: {},
+  flipAnimations: [],
+  flipAnimating: false,
 };
+
+let flipAnimationTimerId = null;
 
 const els = {
   boardGrid: document.getElementById("boardGrid"),
@@ -197,6 +203,7 @@ function applyOthelloCapture(board, placedIndex, teamId) {
   const row = Math.floor(placedIndex / BOARD_SIZE);
   const col = placedIndex % BOARD_SIZE;
   let flipped = 0;
+  const flips = [];
 
   for (const [dr, dc] of DIRECTIONS) {
     let r = row + dr;
@@ -221,6 +228,11 @@ function applyOthelloCapture(board, placedIndex, teamId) {
         if (path.length > 0) {
           path.forEach((pathIndex) => {
             if (next[pathIndex].owner !== teamId) {
+              flips.push({
+                index: pathIndex,
+                fromOwner: next[pathIndex].owner,
+                toOwner: teamId,
+              });
               next[pathIndex].owner = teamId;
               flipped += 1;
             }
@@ -236,7 +248,37 @@ function applyOthelloCapture(board, placedIndex, teamId) {
     }
   }
 
-  return { next, flipped };
+  return { next, flipped, flips };
+}
+
+function clearFlipAnimations() {
+  if (flipAnimationTimerId) {
+    clearTimeout(flipAnimationTimerId);
+    flipAnimationTimerId = null;
+  }
+  state.flipAnimations = [];
+  state.flipAnimating = false;
+}
+
+function startFlipAnimations(flips) {
+  clearFlipAnimations();
+  if (!flips.length) return;
+
+  state.flipAnimations = flips.map((flip, order) => ({
+    ...flip,
+    delay: order * FLIP_ANIMATION_STAGGER_MS,
+  }));
+  state.flipAnimating = true;
+
+  const totalDuration =
+    (flips.length - 1) * FLIP_ANIMATION_STAGGER_MS + FLIP_ANIMATION_DURATION_MS + 80;
+
+  flipAnimationTimerId = setTimeout(() => {
+    flipAnimationTimerId = null;
+    state.flipAnimations = [];
+    state.flipAnimating = false;
+    render();
+  }, totalDuration);
 }
 
 function setLogEntry(entry) {
@@ -251,6 +293,7 @@ function openCell(index) {
   if (state.pendingAssignment) return;
   if (state.attackChanceReady || state.bonusModalOpen) return;
   if (state.collapseAnimating) return;
+  if (state.flipAnimating) return;
   if (state.board[index].status !== "hidden") return;
   state.modalCellIndex = index;
   state.step = "question";
@@ -424,12 +467,13 @@ function assignToTeam(teamId) {
       : { ...cell }
   ));
 
-  const { next, flipped } = applyOthelloCapture(prepared, sourceIndex, teamId);
+  const { next, flipped, flips } = applyOthelloCapture(prepared, sourceIndex, teamId);
   const teamLookup = getTeamLookup();
   const teamName = teamLookup[teamId]?.name ?? teamId;
 
   state.board = next;
   state.pendingAssignment = null;
+  startFlipAnimations(flips);
   setLogEntry(`${assignmentCell.id}番：${teamName}が獲得。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
   closeModal();
 
@@ -452,11 +496,12 @@ function stealCell(index) {
       ? { ...cell, owner: teamId }
       : { ...cell }
   ));
-  const { next, flipped } = applyOthelloCapture(prepared, index, teamId);
+  const { next, flipped, flips } = applyOthelloCapture(prepared, index, teamId);
   const teamName = getTeamLookup()[teamId]?.name ?? teamId;
 
   state.board = next;
   state.pendingStealTeamId = null;
+  startFlipAnimations(flips);
   setLogEntry(`アタックチャンス：${teamName}が${targetCell.id}番を奪取。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
   render();
 }
@@ -579,6 +624,7 @@ function applyBoardArtMask(winnerIds) {
 }
 
 function resetGame() {
+  clearFlipAnimations();
   state.board = createInitialBoard();
   state.modalCellIndex = null;
   state.step = "question";
@@ -609,6 +655,8 @@ function resetGame() {
 function undoLast() {
   if (state.history.length === 0) return;
   if (state.collapseAnimating) return;
+  if (state.flipAnimating) return;
+  clearFlipAnimations();
   const latest = state.history.pop();
   state.board = cloneBoard(latest.board);
   state.log = [...latest.log];
@@ -726,20 +774,26 @@ function renderBoard() {
       const revealArt = gameEnded && winnerIdsForCollapse.includes(cell.owner);
       const isRevealedImage = state.collapseFinished && revealArt;
       const canStealTarget = Boolean(state.pendingStealTeamId && cell.owner !== state.pendingStealTeamId);
+      const flipAnimation = state.flipAnimations.find((animation) => animation.index === index);
+      const fromTeam = flipAnimation ? teamLookup[flipAnimation.fromOwner] : null;
+      const flipClass = fromTeam && !isRevealedImage ? "cell-flip" : "";
+      const flipStyle = flipClass
+        ? `--flip-from:${fromTeam.color}; --flip-to:${team.color}; --flip-border-from:${fromTeam.border}; --flip-border-to:${team.border}; --flip-delay:${flipAnimation.delay}ms;`
+        : "";
 
       // 崩れ落ち完了後の優勝マス：透明にしてvideoを見せる
       let faceStyle = "";
       if (isRevealedImage) {
-        faceStyle = `background:transparent; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
+        faceStyle = `${flipStyle} background:transparent; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
       } else if (revealArt) {
-        faceStyle = `background:rgba(255,255,255,0.02); border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
+        faceStyle = `${flipStyle} background:rgba(255,255,255,0.02); border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
       } else {
-        faceStyle = `background:${team.color}; border-color:${team.border}; box-shadow:inset 0 0 0 1px ${team.border};`;
+        faceStyle = `${flipStyle} background:${team.color}; border-color:${team.border}; box-shadow:inset 0 0 0 1px ${team.border};`;
       }
 
       return `
         <button class="cell-button" type="button" data-cell-index="${index}" ${canStealTarget ? "" : "disabled"}>
-          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""} ${canStealTarget ? "steal-target" : ""}" style="${faceStyle}">
+          <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""} ${canStealTarget ? "steal-target" : ""} ${flipClass}" style="${faceStyle}">
             ${isRevealedImage ? "" : `<div class="cell-owned-label">OWNED</div>
             <div class="cell-owned-team">${escapeHtml(team.name)}</div>
             <div class="cell-number">${cell.id}</div>`}
@@ -766,7 +820,7 @@ function renderBoard() {
       : "";
 
     return `
-      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceReady || state.collapseAnimating ? "disabled" : ""}>
+      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
         <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
           <div class="cell-number">${cell.id}</div>
@@ -1073,7 +1127,7 @@ function render() {
   renderBoard();
   renderAttackChanceOverlay();
   renderWinnerOverlay();
-  els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating;
+  els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating || state.flipAnimating;
   renderModal();
 
   // collapseFinished時はboard-artのmaskを再適用
