@@ -22,6 +22,10 @@
       "app.js",
       "explanations.js",
       "main.js",
+      "manifest.json",
+      "sw.js",
+      "icon-192.png",
+      "icon-512.png",
       "image.png",
       "video.mp4"
     ],

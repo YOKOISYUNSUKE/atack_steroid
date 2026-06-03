@@ -64,6 +64,7 @@ const state = {
   pendingAssignment: null,
   pendingStealTeamId: null,
   teamNames: TEAM_DEFS.map((team) => team.name),
+  attackChanceSignalReady: false,
   attackChanceReady: false,
   attackChanceUsed: false,
   bonusModalOpen: false,
@@ -128,6 +129,7 @@ function cloneHistoryEntry() {
     log: [...state.log],
     pendingAssignment: clonePendingAssignment(state.pendingAssignment),
     pendingStealTeamId: state.pendingStealTeamId,
+    attackChanceSignalReady: state.attackChanceSignalReady,
     attackChanceReady: state.attackChanceReady,
     attackChanceUsed: state.attackChanceUsed,
     bonusModalOpen: state.bonusModalOpen,
@@ -291,7 +293,7 @@ function openCell(index) {
     return;
   }
   if (state.pendingAssignment) return;
-  if (state.attackChanceReady || state.bonusModalOpen) return;
+  if (state.attackChanceSignalReady || state.attackChanceReady || state.bonusModalOpen) return;
   if (state.collapseAnimating) return;
   if (state.flipAnimating) return;
   if (state.board[index].status !== "hidden") return;
@@ -332,12 +334,21 @@ function getQuestionExplanation(questionId) {
 }
 
 function maybePrepareAttackChance() {
-  if (state.attackChanceUsed || state.attackChanceReady || state.pendingStealTeamId) return;
+  if (state.attackChanceUsed || state.attackChanceSignalReady || state.attackChanceReady || state.pendingStealTeamId) return;
   if (isGameEnded()) return;
   if (getResolvedCount() !== ATTACK_CHANCE_TRIGGER_COUNT) return;
 
+  state.attackChanceSignalReady = true;
+  setLogEntry("17問終了。サイレンマークが出現しました。");
+  render();
+}
+
+function revealAttackChance() {
+  if (!state.attackChanceSignalReady || state.attackChanceUsed) return;
+
+  state.attackChanceSignalReady = false;
   state.attackChanceReady = true;
-  setLogEntry("17問終了。アタックチャンスが発生しました。");
+  setLogEntry("アタックチャンスが発生しました。");
   render();
 }
 
@@ -632,6 +643,7 @@ function resetGame() {
   state.history = [];
   state.pendingAssignment = null;
   state.pendingStealTeamId = null;
+  state.attackChanceSignalReady = false;
   state.attackChanceReady = false;
   state.attackChanceUsed = false;
   state.bonusModalOpen = false;
@@ -662,6 +674,7 @@ function undoLast() {
   state.log = [...latest.log];
   state.pendingAssignment = clonePendingAssignment(latest.pendingAssignment);
   state.pendingStealTeamId = latest.pendingStealTeamId;
+  state.attackChanceSignalReady = latest.attackChanceSignalReady;
   state.attackChanceReady = latest.attackChanceReady;
   state.attackChanceUsed = latest.attackChanceUsed;
   state.bonusModalOpen = latest.bonusModalOpen;
@@ -820,7 +833,7 @@ function renderBoard() {
       : "";
 
     return `
-      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
+      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceSignalReady || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
         <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
           <div class="cell-number">${cell.id}</div>
@@ -891,7 +904,10 @@ function renderScore_REMOVED() {
 function renderAttackChanceOverlay() {
   if (!els.attackChanceOverlay) return;
 
-  if (!state.attackChanceReady) {
+  const showSignal = state.attackChanceSignalReady && !state.flipAnimating;
+  const showAttackChance = state.attackChanceReady;
+
+  if (!showSignal && !showAttackChance) {
     els.attackChanceOverlay.classList.add("hidden");
     els.attackChanceOverlay.setAttribute("aria-hidden", "true");
     els.attackChanceOverlay.innerHTML = "";
@@ -900,6 +916,16 @@ function renderAttackChanceOverlay() {
 
   els.attackChanceOverlay.classList.remove("hidden");
   els.attackChanceOverlay.setAttribute("aria-hidden", "false");
+
+  if (showSignal) {
+    els.attackChanceOverlay.innerHTML = `
+      <div class="attack-siren-card" role="button" tabindex="0" aria-label="サイレン">
+        <div class="attack-siren-mark" aria-hidden="true">!</div>
+      </div>
+    `;
+    return;
+  }
+
   els.attackChanceOverlay.innerHTML = `
     <div class="attack-chance-card" role="button" tabindex="0">
       <img class="attack-chance-avatar" src="image.png" alt="" />
@@ -1218,13 +1244,21 @@ function wireEvents() {
 
   els.attackChanceOverlay.addEventListener("click", (event) => {
     if (event.button !== 0) return;
-    startBonusQuestion();
+    if (state.attackChanceSignalReady) {
+      revealAttackChance();
+    } else {
+      startBonusQuestion();
+    }
   });
 
   els.attackChanceOverlay.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      startBonusQuestion();
+      if (state.attackChanceSignalReady) {
+        revealAttackChance();
+      } else {
+        startBonusQuestion();
+      }
     }
   });
 

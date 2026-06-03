@@ -846,6 +846,61 @@ h2 {
   user-select: none;
 }
 
+.attack-siren-card {
+  position: relative;
+  width: min(420px, 82vw);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(254, 202, 202, 0.72);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(248, 113, 113, 0.95) 0 34%, rgba(185, 28, 28, 0.95) 35% 52%, transparent 53%),
+    radial-gradient(circle, rgba(248, 113, 113, 0.26), rgba(15, 23, 42, 0.86) 68%);
+  box-shadow: 0 0 54px rgba(248, 113, 113, 0.58), inset 0 0 42px rgba(254, 202, 202, 0.18);
+  user-select: none;
+  cursor: pointer;
+  animation: sirenPulse 900ms ease-in-out infinite;
+}
+
+.attack-siren-card::before,
+.attack-siren-card::after {
+  content: "";
+  position: absolute;
+  top: 16%;
+  width: 26%;
+  height: 9%;
+  border-radius: 999px;
+  background: rgba(254, 202, 202, 0.88);
+  box-shadow: 0 0 28px rgba(248, 113, 113, 0.72);
+}
+
+.attack-siren-card::before {
+  left: 10%;
+  transform: rotate(-34deg);
+}
+
+.attack-siren-card::after {
+  right: 10%;
+  transform: rotate(34deg);
+}
+
+.attack-siren-mark {
+  width: 38%;
+  height: 54%;
+  display: grid;
+  place-items: center;
+  border-radius: 999px 999px 34px 34px;
+  border: 5px solid rgba(254, 226, 226, 0.95);
+  background: linear-gradient(180deg, #fef2f2 0%, #f87171 42%, #b91c1c 100%);
+  color: #ffffff;
+  font-size: clamp(5rem, 18vw, 8.5rem);
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 5px 16px rgba(127, 29, 29, 0.7);
+  box-shadow: inset 0 16px 26px rgba(255, 255, 255, 0.34), 0 20px 44px rgba(127, 29, 29, 0.44);
+}
+
 .attack-chance-avatar {
   position: absolute;
   top: 22px;
@@ -881,6 +936,19 @@ h2 {
   font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: 0.12em;
+}
+
+@keyframes sirenPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  50% {
+    transform: scale(1.04);
+    filter: brightness(1.18);
+  }
 }
 
 .winner-announcement {

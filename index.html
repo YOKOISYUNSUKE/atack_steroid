@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ステロイド・オセロ式クイズ大会</title>
+  <meta name="theme-color" content="#020617" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" type="image/png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -101,5 +104,14 @@
 
   <script src="explanations.js"></script>
   <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator && window.location.protocol.startsWith("http")) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch((error) => {
+          console.warn("Service worker registration failed:", error);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
