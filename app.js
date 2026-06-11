@@ -1114,22 +1114,18 @@ function renderModal() {
     els.modalResultBar.innerHTML = `
       <div>
         <div class="result-title">${MAX_ATTEMPTS}回不正解</div>
-        <div class="result-desc">このマスは灰色の不正解パネルとして固定されます。</div>
+        <div class="result-desc">Enterキーで灰色の不正解パネルとして確定します。</div>
       </div>
-      <button id="commitMissBtn" class="btn btn-danger" type="button">確定する</button>
     `;
-    document.getElementById("commitMissBtn").addEventListener("click", commitMiss);
   } else if (state.step === "wrong") {
     els.modalResultBar.classList.remove("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
     els.modalResultBar.innerHTML = `
       <div>
         <div class="result-title">不正解</div>
-        <div class="result-desc">残り回答権：${remaining} 回。もう一度挑戦できます。</div>
+        <div class="result-desc">残り回答権：${remaining} 回。Enterキーで次の選択へ進みます。</div>
       </div>
-      <button id="retryBtn" class="btn btn-retry" type="button">もう一度挑戦</button>
     `;
-    document.getElementById("retryBtn").addEventListener("click", retryQuestion);
   } else {
     els.modalResultBar.classList.add("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
@@ -1209,7 +1205,7 @@ function handleKeyboardAnswer(event) {
     return false;
   }
 
-  if (state.step !== "question" && state.step !== "wrong") {
+  if (state.step !== "question") {
     return false;
   }
 
@@ -1219,12 +1215,26 @@ function handleKeyboardAnswer(event) {
     return true;
   }
 
-  if (state.step === "wrong") {
-    state.step = "question";
-    state.selectedOption = null;
+  answerQuestion(optionIndex);
+  return true;
+}
+
+function handleKeyboardResultAction(event) {
+  if (
+    event.key !== "Enter"
+    || els.modalOverlay.classList.contains("hidden")
+    || state.modalCellIndex === null
+    || (state.step !== "wrong" && state.step !== "result")
+  ) {
+    return false;
   }
 
-  answerQuestion(optionIndex);
+  event.preventDefault();
+  if (state.step === "result") {
+    commitMiss();
+  } else {
+    retryQuestion();
+  }
   return true;
 }
 
@@ -1290,6 +1300,7 @@ function wireEvents() {
       return;
     }
 
+    if (handleKeyboardResultAction(event)) return;
     if (handleKeyboardAnswer(event)) return;
     handleKeyboardTeamAssignment(event);
   });
