@@ -1,6 +1,7 @@
 const BOARD_SIZE = 5;
 const MAX_ATTEMPTS = 3;
 const ATTACK_CHANCE_TRIGGER_COUNT = 17;
+const ATTACK_CHANCE_INTERVAL_MS = 3000;
 const FLIP_ANIMATION_DURATION_MS = 500;
 const FLIP_ANIMATION_STAGGER_MS = 500;
 
@@ -64,6 +65,7 @@ const state = {
   pendingAssignment: null,
   pendingStealTeamId: null,
   teamNames: TEAM_DEFS.map((team) => team.name),
+  attackChanceWaiting: false,
   attackChanceSignalReady: false,
   attackChanceReady: false,
   attackChanceUsed: false,
@@ -80,6 +82,7 @@ const state = {
 };
 
 let flipAnimationTimerId = null;
+let attackChanceTimerId = null;
 
 const els = {
   boardGrid: document.getElementById("boardGrid"),
@@ -129,6 +132,7 @@ function cloneHistoryEntry() {
     log: [...state.log],
     pendingAssignment: clonePendingAssignment(state.pendingAssignment),
     pendingStealTeamId: state.pendingStealTeamId,
+    attackChanceWaiting: state.attackChanceWaiting,
     attackChanceSignalReady: state.attackChanceSignalReady,
     attackChanceReady: state.attackChanceReady,
     attackChanceUsed: state.attackChanceUsed,
@@ -262,6 +266,12 @@ function clearFlipAnimations() {
   state.flipAnimating = false;
 }
 
+function clearAttackChanceTimer() {
+  if (attackChanceTimerId === null) return;
+  clearTimeout(attackChanceTimerId);
+  attackChanceTimerId = null;
+}
+
 function startFlipAnimations(flips) {
   clearFlipAnimations();
   if (!flips.length) return;
@@ -293,7 +303,7 @@ function openCell(index) {
     return;
   }
   if (state.pendingAssignment) return;
-  if (state.attackChanceSignalReady || state.attackChanceReady || state.bonusModalOpen) return;
+  if (state.attackChanceWaiting || state.attackChanceSignalReady || state.attackChanceReady || state.bonusModalOpen) return;
   if (state.collapseAnimating) return;
   if (state.flipAnimating) return;
   if (state.board[index].status !== "hidden") return;
@@ -334,13 +344,23 @@ function getQuestionExplanation(questionId) {
 }
 
 function maybePrepareAttackChance() {
-  if (state.attackChanceUsed || state.attackChanceSignalReady || state.attackChanceReady || state.pendingStealTeamId) return;
+  if (state.attackChanceUsed || state.attackChanceWaiting || state.attackChanceSignalReady || state.attackChanceReady || state.pendingStealTeamId) return;
   if (isGameEnded()) return;
   if (getResolvedCount() !== ATTACK_CHANCE_TRIGGER_COUNT) return;
 
-  state.attackChanceSignalReady = true;
-  setLogEntry("17問終了。サイレンマークが出現しました。");
+  state.attackChanceWaiting = true;
+  setLogEntry("17問終了。3秒後にアタックチャンスへ移行します。");
   render();
+
+  attackChanceTimerId = window.setTimeout(() => {
+    attackChanceTimerId = null;
+    if (!state.attackChanceWaiting || state.attackChanceUsed) return;
+
+    state.attackChanceWaiting = false;
+    state.attackChanceSignalReady = true;
+    setLogEntry("サイレンマークが出現しました。");
+    render();
+  }, ATTACK_CHANCE_INTERVAL_MS);
 }
 
 function revealAttackChance() {
@@ -636,6 +656,7 @@ function applyBoardArtMask(winnerIds) {
 
 function resetGame() {
   clearFlipAnimations();
+  clearAttackChanceTimer();
   state.board = createInitialBoard();
   state.modalCellIndex = null;
   state.step = "question";
@@ -643,6 +664,7 @@ function resetGame() {
   state.history = [];
   state.pendingAssignment = null;
   state.pendingStealTeamId = null;
+  state.attackChanceWaiting = false;
   state.attackChanceSignalReady = false;
   state.attackChanceReady = false;
   state.attackChanceUsed = false;
@@ -669,11 +691,13 @@ function undoLast() {
   if (state.collapseAnimating) return;
   if (state.flipAnimating) return;
   clearFlipAnimations();
+  clearAttackChanceTimer();
   const latest = state.history.pop();
   state.board = cloneBoard(latest.board);
   state.log = [...latest.log];
   state.pendingAssignment = clonePendingAssignment(latest.pendingAssignment);
   state.pendingStealTeamId = latest.pendingStealTeamId;
+  state.attackChanceWaiting = latest.attackChanceWaiting;
   state.attackChanceSignalReady = latest.attackChanceSignalReady;
   state.attackChanceReady = latest.attackChanceReady;
   state.attackChanceUsed = latest.attackChanceUsed;
@@ -833,7 +857,7 @@ function renderBoard() {
       : "";
 
     return `
-      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceSignalReady || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
+      <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceWaiting || state.attackChanceSignalReady || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
         <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
           <div class="cell-number">${cell.id}</div>

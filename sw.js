@@ -1,4 +1,4 @@
-const CACHE_NAME = "atack-steroid-v3";
+const CACHE_NAME = "atack-steroid-v4";
 const APP_SCOPE = self.registration.scope;
 const CORE_ASSETS = [
   "./",
