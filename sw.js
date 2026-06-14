@@ -1,4 +1,4 @@
-const CACHE_NAME = "atack-steroid-v5";
+const CACHE_NAME = "atack-steroid-v14";
 const APP_SCOPE = self.registration.scope;
 const CORE_ASSETS = [
   "./",
@@ -8,7 +8,8 @@ const CORE_ASSETS = [
   "explanations.js",
   "manifest.json",
   "icon-192.png",
-  "icon-512.png"
+  "icon-512.png",
+  "image.png"
 ].map((assetPath) => new URL(assetPath, APP_SCOPE).toString());
 
 self.addEventListener("install", (event) => {

@@ -72,9 +72,14 @@ const state = {
   bonusModalOpen: false,
   bonusStep: "question",
   bonusSelectedOption: null,
+  bonusAttempts: 0,
+  bonusUsedOptions: [],
+  winnerAnnouncementPending: false,
   collapseReady: false,
   collapseAnimating: false,
   collapseFinished: false,
+  finalRevealPending: false,
+  finalImageRevealed: false,
   attempts: {},
   usedOptions: {},
   flipAnimations: [],
@@ -90,6 +95,9 @@ const els = {
   boardImage: document.getElementById("boardImage"),
 
   teamNameGrid: document.getElementById("teamNameGrid"),
+  nextQuestionBanner: document.getElementById("nextQuestionBanner"),
+  nextQuestionKicker: document.getElementById("nextQuestionKicker"),
+  nextQuestionNumber: document.getElementById("nextQuestionNumber"),
   resetBtn: document.getElementById("resetBtn"),
   undoBtn: document.getElementById("undoBtn"),
   modalOverlay: document.getElementById("modalOverlay"),
@@ -139,6 +147,14 @@ function cloneHistoryEntry() {
     bonusModalOpen: state.bonusModalOpen,
     bonusStep: state.bonusStep,
     bonusSelectedOption: state.bonusSelectedOption,
+    bonusAttempts: state.bonusAttempts,
+    bonusUsedOptions: [...state.bonusUsedOptions],
+    winnerAnnouncementPending: state.winnerAnnouncementPending,
+    collapseReady: state.collapseReady,
+    collapseAnimating: state.collapseAnimating,
+    collapseFinished: state.collapseFinished,
+    finalRevealPending: state.finalRevealPending,
+    finalImageRevealed: state.finalImageRevealed,
     attempts: { ...state.attempts },
     usedOptions: JSON.parse(JSON.stringify(state.usedOptions)),
   };
@@ -316,7 +332,7 @@ function openCell(index) {
 
 function closeModal() {
   if (state.bonusModalOpen) {
-    if (state.bonusStep === "question" && !state.pendingAssignment && !state.attackChanceUsed) {
+    if (!state.pendingAssignment && !state.attackChanceUsed) {
       state.attackChanceReady = true;
     }
     state.bonusModalOpen = false;
@@ -384,7 +400,12 @@ function startBonusQuestion() {
 }
 
 function prepareCollapseStart() {
-  state.collapseReady = getAllWinners().length > 0;
+  state.winnerAnnouncementPending = getAllWinners().length > 0;
+  state.collapseReady = false;
+  state.collapseAnimating = false;
+  state.collapseFinished = false;
+  state.finalRevealPending = false;
+  state.finalImageRevealed = false;
   render();
 }
 
@@ -426,6 +447,8 @@ function answerQuestion(optionIndex) {
 
 function answerBonusQuestion(optionIndex) {
   state.bonusSelectedOption = optionIndex;
+  state.bonusAttempts += 1;
+  state.bonusUsedOptions.push(optionIndex);
 
   if (optionIndex === BONUS_QUESTION.correctIndex) {
     state.pendingAssignment = {
@@ -436,14 +459,31 @@ function answerBonusQuestion(optionIndex) {
       question: BONUS_QUESTION.question,
     };
     state.bonusStep = "correct";
-    setLogEntry("アタックチャンス正解。A/B/C/Dキーで正解チームを選択してください。");
+    setLogEntry(`アタックチャンス正解（${state.bonusAttempts}回目）。A/B/C/Dキーで正解チームを選択してください。`);
     render();
     return;
   }
 
-  state.attackChanceUsed = true;
-  state.bonusStep = "wrong";
-  setLogEntry("アタックチャンス不正解。アタックチャンスは終了しました。");
+  if (state.bonusAttempts >= MAX_ATTEMPTS) {
+    state.pendingAssignment = {
+      type: "bonusSteal",
+      selectedOption: null,
+      questionId: "アタックチャンス",
+      category: BONUS_QUESTION.category,
+      question: BONUS_QUESTION.question,
+    };
+    state.bonusStep = "result";
+    setLogEntry("アタックチャンス3回不正解。A/B/C/Dキーで残ったチームを選択してください。");
+  } else {
+    state.bonusStep = "wrong";
+    setLogEntry(`アタックチャンス不正解。残り回答権：${MAX_ATTEMPTS - state.bonusAttempts}回。`);
+  }
+  renderModal();
+}
+
+function retryBonusQuestion() {
+  state.bonusStep = "question";
+  state.bonusSelectedOption = null;
   renderModal();
 }
 
@@ -537,115 +577,80 @@ function stealCell(index) {
   render();
 }
 
-// --- 崩れ落ち演出 ---
 function triggerCollapseAnimation() {
   const winnerIds = getWinnerIds();
-  if (!isGameEnded() || winnerIds.length === 0 || state.collapseAnimating || state.collapseFinished) return;
+  if (!state.collapseReady || winnerIds.length === 0 || state.collapseAnimating || state.collapseFinished) return;
 
   state.collapseReady = false;
   state.collapseAnimating = true;
   render();
 
-  const buttons = els.boardGrid.querySelectorAll(".cell-button");
   const collapseTargets = [];
-
-  buttons.forEach((button) => {
+  els.boardGrid.querySelectorAll(".cell-button").forEach((button) => {
     const cellIndex = Number(button.dataset.cellIndex);
     const cell = state.board[cellIndex];
 
     if (cell.status === "missed") return;
     if (cell.status === "claimed" && winnerIds.includes(cell.owner)) return;
-
     collapseTargets.push({ button, cellIndex });
   });
 
-  collapseTargets.forEach((target) => {
-    const row = Math.floor(target.cellIndex / BOARD_SIZE);
+  collapseTargets.forEach(({ button, cellIndex }) => {
+    const row = Math.floor(cellIndex / BOARD_SIZE);
     const delay = (BOARD_SIZE - 1 - row) * 150 + Math.random() * 100;
-    const face = target.button.querySelector(".cell-face");
-    if (face) {
-      const rotateDir = Math.random() > 0.5 ? 1 : -1;
-      const rotateDeg = 15 + Math.random() * 30;
-      const translateX = (Math.random() - 0.5) * 60;
+    const face = button.querySelector(".cell-face");
+    if (!face) return;
 
-      setTimeout(() => {
-        face.style.setProperty("--collapse-rotate", `${rotateDir * rotateDeg}deg`);
-        face.style.setProperty("--collapse-tx", `${translateX}px`);
-        face.classList.add("cell-collapse");
-      }, delay);
-    }
+    const rotateDir = Math.random() > 0.5 ? 1 : -1;
+    const rotateDeg = 15 + Math.random() * 30;
+    const translateX = (Math.random() - 0.5) * 60;
+
+    setTimeout(() => {
+      face.style.setProperty("--collapse-rotate", `${rotateDir * rotateDeg}deg`);
+      face.style.setProperty("--collapse-tx", `${translateX}px`);
+      face.classList.add("cell-collapse");
+    }, delay);
   });
 
   const maxDelay = (BOARD_SIZE - 1) * 150 + 100 + 1500;
   setTimeout(() => {
     state.collapseAnimating = false;
     state.collapseFinished = true;
+    state.finalRevealPending = true;
     render();
-    // 崩れ落ち完了後、優勝マスを透明にして画像を表示
-    setTimeout(() => revealWinnerImage(), 300);
+    applyBoardArtMask(winnerIds);
   }, maxDelay);
 }
 
-// --- 崩れ落ち完了後に優勝マスを透明にして背景画像を見せる ---
-function revealWinnerImage() {
-  // 優勝マスのセルだけ透明にし、背景のvideo要素が透けて見えるようにする
-  // board-artに穴を開けて、優勝マスの位置だけvideoが見えるようにする
-  const buttons = els.boardGrid.querySelectorAll(".cell-button");
-  const winnerIds = getWinnerIds();
-
-  // board-artにCSS maskを適用して優勝マス位置を穴あきにする
-  applyBoardArtMask(winnerIds);
-
-  let delay = 0;
-  buttons.forEach((button) => {
-    const cellIndex = Number(button.dataset.cellIndex);
-    const cell = state.board[cellIndex];
-
-    if (cell.status === "claimed" && winnerIds.includes(cell.owner)) {
-      const face = button.querySelector(".cell-face");
-      if (face) {
-        setTimeout(() => {
-          face.classList.add("cell-transparent");
-        }, delay);
-        delay += 100;
-      }
-    }
-  });
-}
-
 function applyBoardArtMask(winnerIds) {
-  // board-artにCSS maskを適用し、優勝マスの位置を透明にする
-  // これにより優勝マス位置ではboard-imageのvideoが見える
   const rects = [];
-  const cellPercent = 100 / BOARD_SIZE; // 20%
-  const gap = 1; // gap分の余白（%）
+  const cellPercent = 100 / BOARD_SIZE;
+  const gap = 1;
 
   state.board.forEach((cell, index) => {
-    if (cell.status === "claimed" && winnerIds.includes(cell.owner)) {
-      const row = Math.floor(index / BOARD_SIZE);
-      const col = index % BOARD_SIZE;
-      const x = col * cellPercent + gap / 2;
-      const y = row * cellPercent + gap / 2;
-      const w = cellPercent - gap;
-      const h = cellPercent - gap;
-      rects.push({ x, y, w, h });
-    }
+    if (cell.status !== "claimed" || !winnerIds.includes(cell.owner)) return;
+
+    const row = Math.floor(index / BOARD_SIZE);
+    const col = index % BOARD_SIZE;
+    rects.push({
+      x: col * cellPercent + gap / 2,
+      y: row * cellPercent + gap / 2,
+      w: cellPercent - gap,
+      h: cellPercent - gap,
+    });
   });
 
-  // Render the SVG with real transparent holes so WebKit/Chromium alpha masks work.
   let svgMask = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">`;
   svgMask += `<defs><mask id="winner-holes" maskUnits="userSpaceOnUse">`;
   svgMask += `<rect width="100" height="100" fill="white"/>`;
-  rects.forEach(r => {
-    svgMask += `<rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="2" fill="black"/>`;
+  rects.forEach(({ x, y, w, h }) => {
+    svgMask += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" fill="black"/>`;
   });
   svgMask += `</mask></defs>`;
   svgMask += `<rect width="100" height="100" fill="white" mask="url(#winner-holes)"/>`;
   svgMask += `</svg>`;
 
-  const encoded = encodeURIComponent(svgMask);
-  const maskUrl = `url("data:image/svg+xml,${encoded}")`;
-
+  const maskUrl = `url("data:image/svg+xml,${encodeURIComponent(svgMask)}")`;
   els.boardArt.style.maskImage = maskUrl;
   els.boardArt.style.webkitMaskImage = maskUrl;
   els.boardArt.style.maskSize = "100% 100%";
@@ -671,9 +676,14 @@ function resetGame() {
   state.bonusModalOpen = false;
   state.bonusStep = "question";
   state.bonusSelectedOption = null;
+  state.bonusAttempts = 0;
+  state.bonusUsedOptions = [];
+  state.winnerAnnouncementPending = false;
   state.collapseReady = false;
   state.collapseAnimating = false;
   state.collapseFinished = false;
+  state.finalRevealPending = false;
+  state.finalImageRevealed = false;
   state.attempts = {};
   state.usedOptions = {};
   state.log = ["ゲームをリセットしました。"];
@@ -704,14 +714,19 @@ function undoLast() {
   state.bonusModalOpen = latest.bonusModalOpen;
   state.bonusStep = latest.bonusStep;
   state.bonusSelectedOption = latest.bonusSelectedOption;
+  state.bonusAttempts = latest.bonusAttempts;
+  state.bonusUsedOptions = [...latest.bonusUsedOptions];
+  state.winnerAnnouncementPending = latest.winnerAnnouncementPending;
+  state.collapseReady = latest.collapseReady;
+  state.collapseAnimating = latest.collapseAnimating;
+  state.collapseFinished = latest.collapseFinished;
+  state.finalRevealPending = latest.finalRevealPending;
+  state.finalImageRevealed = latest.finalImageRevealed;
   state.attempts = { ...latest.attempts };
   state.usedOptions = JSON.parse(JSON.stringify(latest.usedOptions));
   state.modalCellIndex = null;
   state.step = "question";
   state.selectedOption = null;
-  state.collapseReady = false;
-  state.collapseAnimating = false;
-  state.collapseFinished = false;
   if (els.boardArt) {
     els.boardArt.classList.remove("art-hidden");
     els.boardArt.style.maskImage = "";
@@ -798,6 +813,14 @@ function renderBoard() {
   els.boardGrid.innerHTML = state.board.map((cell, index) => {
     const isPending = pendingCell && pendingCell.index === index;
 
+    if (state.finalImageRevealed) {
+      return `
+        <button class="cell-button" type="button" data-cell-index="${index}" disabled>
+          <div class="cell-face cell-final-transparent"></div>
+        </button>
+      `;
+    }
+
     if (state.collapseFinished && cell.status === "claimed" && !winnerIdsForCollapse.includes(cell.owner)) {
       return `
         <button class="cell-button" type="button" data-cell-index="${index}" disabled>
@@ -818,7 +841,6 @@ function renderBoard() {
         ? `--flip-from:${fromTeam.color}; --flip-to:${team.color}; --flip-border-from:${fromTeam.border}; --flip-border-to:${team.border}; --flip-delay:${flipAnimation.delay}ms;`
         : "";
 
-      // 崩れ落ち完了後の優勝マス：透明にしてvideoを見せる
       let faceStyle = "";
       if (isRevealedImage) {
         faceStyle = `${flipStyle} background:transparent; border-color:rgba(255,255,255,0.55); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08);`;
@@ -953,9 +975,7 @@ function renderAttackChanceOverlay() {
   els.attackChanceOverlay.innerHTML = `
     <div class="attack-chance-card" role="button" tabindex="0">
       <img class="attack-chance-avatar" src="image.png" alt="" />
-      <div class="attack-chance-kicker">17問終了</div>
       <div class="attack-chance-title">アタックチャンス</div>
-      <div class="attack-chance-hint">左クリックでボーナス問題へ</div>
     </div>
   `;
 }
@@ -979,7 +999,6 @@ function renderWinnerOverlay() {
     <div class="winner-announcement" role="button" tabindex="0">
       <div class="winner-label">${isTie ? "同点優勝" : "優勝"}</div>
       <div class="winner-name">${winnerNames}</div>
-      <div class="winner-hint">左クリックでマスを落とす</div>
     </div>
   `;
 }
@@ -989,10 +1008,13 @@ function renderBonusModal() {
   els.modalCategory.textContent = BONUS_QUESTION.category;
   els.modalTitle.textContent = BONUS_QUESTION.question;
 
-  const reveal = state.bonusStep === "correct" || state.bonusStep === "wrong";
-  els.modalOptions.innerHTML = BONUS_QUESTION.options.map((option, index) => {
+  const remaining = MAX_ATTEMPTS - state.bonusAttempts;
+  const reveal = state.bonusStep === "correct" || state.bonusStep === "result";
+  const attemptInfoHtml = `<div class="modal-attempt-info">回答権：<span class="attempt-remaining ${remaining <= 1 ? "attempt-danger" : ""}">${remaining}</span> / ${MAX_ATTEMPTS}</div>`;
+  els.modalOptions.innerHTML = attemptInfoHtml + BONUS_QUESTION.options.map((option, index) => {
     const selected = state.bonusSelectedOption === index;
     const isCorrect = BONUS_QUESTION.correctIndex === index;
+    const isUsed = state.bonusUsedOptions.includes(index);
 
     let border = "rgba(255,255,255,0.1)";
     let background = "rgba(255,255,255,0.04)";
@@ -1003,13 +1025,22 @@ function renderBonusModal() {
     } else if (reveal && selected && !isCorrect) {
       border = "rgba(252,165,165,0.75)";
       background = "rgba(239,68,68,0.16)";
+    } else if (state.bonusStep === "wrong" && selected) {
+      border = "rgba(252,165,165,0.75)";
+      background = "rgba(239,68,68,0.16)";
+    }
+
+    if (state.bonusStep === "question" && isUsed) {
+      border = "rgba(255,255,255,0.06)";
+      background = "rgba(239,68,68,0.06)";
     }
 
     return `
-      <button class="option-btn" type="button" data-option-index="${index}" disabled style="border-color:${border}; background:${background};">
+      <button class="option-btn ${isUsed && state.bonusStep === "question" ? "option-used" : ""}" type="button" data-option-index="${index}" disabled style="border-color:${border}; background:${background};">
         <div class="option-row">
           <span class="option-letter">${index + 1}</span>
           <span>${escapeHtml(option)}</span>
+          ${isUsed && state.bonusStep === "question" ? '<span class="option-used-mark">\u2716</span>' : ""}
         </div>
       </button>
     `;
@@ -1033,11 +1064,18 @@ function renderBonusModal() {
     els.modalResultBar.innerHTML = `
       <div>
         <div class="result-title">不正解</div>
-        <div class="result-desc">アタックチャンスは終了です。</div>
+        <div class="result-desc">残り回答権：${remaining} 回。Enterキーで次の選択へ進みます。</div>
       </div>
-      <button id="closeBonusBtn" class="btn btn-secondary" type="button">閉じる</button>
     `;
-    document.getElementById("closeBonusBtn").addEventListener("click", closeModal);
+  } else if (state.bonusStep === "result") {
+    els.modalResultBar.classList.remove("hidden");
+    els.modalResultBar.classList.remove("result-bar-correct");
+    els.modalResultBar.innerHTML = `
+      <div>
+        <div class="result-title">${MAX_ATTEMPTS}回不正解</div>
+        <div class="result-desc">A/B/C/Dキーで残った1チームを選択してください。選択したチームがマスを横取りできます。</div>
+      </div>
+    `;
   } else {
     els.modalResultBar.classList.add("hidden");
     els.modalResultBar.classList.remove("result-bar-correct");
@@ -1168,20 +1206,48 @@ function hideModal() {
   els.modalOverlay.setAttribute("aria-hidden", "true");
 }
 
+function renderNextQuestionBanner() {
+  if (!els.nextQuestionBanner) return;
+
+  const attackChanceActive = Boolean(
+    state.attackChanceWaiting
+    || state.attackChanceSignalReady
+    || state.attackChanceReady
+    || state.bonusModalOpen
+    || state.pendingStealTeamId
+    || state.pendingAssignment?.type === "bonusSteal"
+  );
+
+  els.nextQuestionBanner.classList.toggle("is-attack-chance", attackChanceActive);
+  els.nextQuestionBanner.classList.toggle("is-complete", isGameEnded());
+
+  if (isGameEnded()) {
+    els.nextQuestionKicker.textContent = "QUIZ COMPLETE";
+    els.nextQuestionNumber.textContent = "全25問終了";
+    return;
+  }
+
+  if (attackChanceActive) {
+    els.nextQuestionKicker.textContent = "SPECIAL QUESTION";
+    els.nextQuestionNumber.textContent = "アタックチャンス";
+    return;
+  }
+
+  els.nextQuestionKicker.textContent = "NEXT QUESTION";
+  els.nextQuestionNumber.textContent = `第${getResolvedCount() + 1}問`;
+}
+
 function render() {
   renderTeamNameInputs();
+  renderNextQuestionBanner();
   renderBoard();
   renderAttackChanceOverlay();
   renderWinnerOverlay();
   els.undoBtn.disabled = state.history.length === 0 || state.collapseAnimating || state.flipAnimating;
   renderModal();
 
-  // collapseFinished時はboard-artのmaskを再適用
-  if (state.collapseFinished) {
-    const winnerIds = getWinnerIds();
-    if (winnerIds.length > 0) {
-      applyBoardArtMask(winnerIds);
-    }
+  if (state.collapseFinished && !state.finalImageRevealed) {
+    applyBoardArtMask(getWinnerIds());
   }
 }
 
@@ -1221,6 +1287,9 @@ function handleKeyboardAnswer(event) {
   if (state.bonusModalOpen) {
     if (state.bonusStep !== "question") return false;
     event.preventDefault();
+    if (state.bonusUsedOptions.includes(optionIndex)) {
+      return true;
+    }
     answerBonusQuestion(optionIndex);
     return true;
   }
@@ -1245,6 +1314,16 @@ function handleKeyboardAnswer(event) {
 
 function handleKeyboardResultAction(event) {
   if (
+    event.key === "Enter"
+    && state.bonusModalOpen
+    && state.bonusStep === "wrong"
+  ) {
+    event.preventDefault();
+    retryBonusQuestion();
+    return true;
+  }
+
+  if (
     event.key !== "Enter"
     || els.modalOverlay.classList.contains("hidden")
     || state.modalCellIndex === null
@@ -1268,6 +1347,43 @@ function handleKeyboardTeamAssignment(event) {
 
   event.preventDefault();
   assignToTeam(teamId);
+  return true;
+}
+
+function handleKeyboardWinnerAnnouncement(event) {
+  if (
+    event.key !== "Enter"
+    || !state.winnerAnnouncementPending
+    || !isGameEnded()
+    || state.flipAnimating
+    || state.collapseFinished
+  ) {
+    return false;
+  }
+
+  event.preventDefault();
+  state.winnerAnnouncementPending = false;
+  state.collapseReady = true;
+  render();
+  return true;
+}
+
+function handleKeyboardFinalReveal(event) {
+  if (
+    event.key !== "Enter"
+    || !state.finalRevealPending
+    || state.collapseAnimating
+    || !state.collapseFinished
+    || state.finalImageRevealed
+  ) {
+    return false;
+  }
+
+  event.preventDefault();
+  state.finalRevealPending = false;
+  state.finalImageRevealed = true;
+  els.boardArt.classList.add("art-hidden");
+  render();
   return true;
 }
 
@@ -1325,6 +1441,8 @@ function wireEvents() {
     }
 
     if (handleKeyboardResultAction(event)) return;
+    if (handleKeyboardFinalReveal(event)) return;
+    if (handleKeyboardWinnerAnnouncement(event)) return;
     if (handleKeyboardAnswer(event)) return;
     handleKeyboardTeamAssignment(event);
   });
