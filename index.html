@@ -10,7 +10,32 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="app-shell">
+  <section id="coverScreen" class="cover-screen" aria-labelledby="coverTitle">
+    <div class="cover-card">
+      <div class="cover-kicker">STEROID QUIZ BATTLE</div>
+      <h1 id="coverTitle" class="cover-title">アタックステロイド</h1>
+      <p class="cover-lead">知識と戦略で、25マスの盤面を制覇せよ。</p>
+
+      <div class="cover-actions">
+        <button id="startQuizBtn" class="cover-btn cover-btn-primary" type="button" autofocus>クイズを始める</button>
+        <button id="guideToggleBtn" class="cover-btn cover-btn-secondary" type="button" aria-expanded="false" aria-controls="guidePanel">指南書</button>
+      </div>
+
+      <div id="guidePanel" class="guide-panel" hidden>
+        <h2>指南書</h2>
+        <ol class="guide-list">
+          <li><strong>マスを選ぶ</strong><span>好きなマスをクリックして問題を開きます。</span></li>
+          <li><strong>回答する</strong><span>選択肢はキーボードの1〜4で回答します。回答権は各問題3回です。</span></li>
+          <li><strong>チームを決める</strong><span>正解したらA・B・C・Dキーで獲得チームを決定します。</span></li>
+          <li><strong>盤面を奪う</strong><span>相手のマスを挟むと、自チームの色へ反転します。</span></li>
+          <li><strong>特別問題</strong><span>17問終了後にアタックチャンスが発生します。</span></li>
+        </ol>
+        <p class="guide-note">「1手戻す」で直前の確定操作を戻し、「リセット」で新しい25問を抽選して最初から開始します。</p>
+      </div>
+    </div>
+  </section>
+
+  <div id="appShell" class="app-shell" inert>
     <main class="layout">
       <section class="main-panel panel">
         <header class="hero">

@@ -1,4 +1,5 @@
 const BOARD_SIZE = 5;
+const QUIZ_QUESTION_COUNT = BOARD_SIZE * BOARD_SIZE;
 const MAX_ATTEMPTS = 3;
 const ATTACK_CHANCE_TRIGGER_COUNT = 17;
 const ATTACK_CHANCE_INTERVAL_MS = 3000;
@@ -21,7 +22,7 @@ const TEAM_DEFS = [
 ];
 const TEAM_KEYS = ["a", "b", "c", "d"];
 
-const QUESTIONS = [
+const QUESTION_POOL = [
   { id: 1, category: "電解質", question: "ステロイド服用中に「カリウム」が低下しやすい理由として正しいのは？", options: ["便へのカリウム排泄が促進されるため", "カリウムの腸管吸収が完全に停止するため", "尿中へのカリウム排泄が促進されるため", "カリウムが骨に過剰に沈着するため"], correctIndex: 2 },
   { id: 2, category: "減量", question: "ステロイドの減量おいて、最もゆっくり減らすべき期間は？", options: ["生理的必要量（プレドニゾロン 5-7.5mg 相当）付近の減量時", "投与初期の減量時", "症状が完全に消失した直後", "服薬を開始して1週間以内"], correctIndex: 0 },
   { id: 3, category: "副腎不全", question: "ステロイドの急激な中断によって起こる「急性副腎不全」の症状は？", options: ["急激な高血圧", "一過性の食欲増進", "無症状で経過することが多い", "ショック状態（低血圧、頻脈、嘔吐など）"], correctIndex: 3 },
@@ -90,6 +91,11 @@ let flipAnimationTimerId = null;
 let attackChanceTimerId = null;
 
 const els = {
+  coverScreen: document.getElementById("coverScreen"),
+  appShell: document.getElementById("appShell"),
+  startQuizBtn: document.getElementById("startQuizBtn"),
+  guideToggleBtn: document.getElementById("guideToggleBtn"),
+  guidePanel: document.getElementById("guidePanel"),
   boardGrid: document.getElementById("boardGrid"),
   boardArt: document.getElementById("boardArt"),
   boardImage: document.getElementById("boardImage"),
@@ -112,10 +118,39 @@ const els = {
   winnerOverlay: document.getElementById("winnerOverlay"),
 };
 
+function validateQuestionPool() {
+  if (QUESTION_POOL.length < QUIZ_QUESTION_COUNT) {
+    throw new Error(`問題プールには最低${QUIZ_QUESTION_COUNT}問必要です。現在は${QUESTION_POOL.length}問です。`);
+  }
+
+  const seenIds = new Set();
+  QUESTION_POOL.forEach((question) => {
+    if (seenIds.has(question.id)) {
+      throw new Error(`問題ID「${question.id}」が重複しています。`);
+    }
+    seenIds.add(question.id);
+
+    if (!Object.prototype.hasOwnProperty.call(QUIZ_EXPLANATIONS, question.id)) {
+      throw new Error(`問題ID「${question.id}」の解説がQUIZ_EXPLANATIONSに登録されていません。`);
+    }
+  });
+}
+
+function selectRandomQuestions() {
+  const shuffled = [...QUESTION_POOL];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled.slice(0, QUIZ_QUESTION_COUNT);
+}
+
 function createInitialBoard() {
-  return QUESTIONS.map((q, index) => ({
+  validateQuestionPool();
+  return selectRandomQuestions().map((q, index) => ({
     ...q,
     index,
+    boardNumber: index + 1,
     status: "hidden",
     owner: null,
     selectedOption: null,
@@ -431,7 +466,7 @@ function answerQuestion(optionIndex) {
       category: modalCell.category,
       question: modalCell.question,
     };
-    setLogEntry(`${modalCell.id}番：正解（${attemptCount}回目）。A/B/C/Dキーで獲得チームを選択してください。`);
+    setLogEntry(`${modalCell.boardNumber}番：正解（${attemptCount}回目）。A/B/C/Dキーで獲得チームを選択してください。`);
     state.step = "correct";
     render();
     return;
@@ -497,7 +532,7 @@ function commitMiss() {
       ? { ...cell, status: "missed", owner: null, selectedOption: state.selectedOption }
       : { ...cell }
   ));
-  setLogEntry(`${modalCell.id}番：${MAX_ATTEMPTS}回不正解。灰色パネルとして固定。`);
+  setLogEntry(`${modalCell.boardNumber}番：${MAX_ATTEMPTS}回不正解。灰色パネルとして固定。`);
   closeModal();
 
   if (isGameEnded()) {
@@ -545,7 +580,7 @@ function assignToTeam(teamId) {
   state.board = next;
   state.pendingAssignment = null;
   startFlipAnimations(flips);
-  setLogEntry(`${assignmentCell.id}番：${teamName}が獲得。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
+  setLogEntry(`${assignmentCell.boardNumber}番：${teamName}が獲得。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
   closeModal();
 
   if (isGameEnded()) {
@@ -573,7 +608,7 @@ function stealCell(index) {
   state.board = next;
   state.pendingStealTeamId = null;
   startFlipAnimations(flips);
-  setLogEntry(`アタックチャンス：${teamName}が${targetCell.id}番を奪取。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
+  setLogEntry(`アタックチャンス：${teamName}が${targetCell.boardNumber}番を奪取。${flipped > 0 ? `${flipped}マス反転。` : "反転なし。"}`);
   render();
 }
 
@@ -855,7 +890,7 @@ function renderBoard() {
           <div class="cell-face cell-claimed ${revealArt ? "cell-reveal" : ""} ${isRevealedImage ? "cell-transparent" : ""} ${isPending ? "pending-highlight" : ""} ${canStealTarget ? "steal-target" : ""} ${flipClass}" style="${faceStyle}">
             ${isRevealedImage ? "" : `<div class="cell-owned-label">OWNED</div>
             <div class="cell-owned-team">${escapeHtml(team.name)}</div>
-            <div class="cell-number">${cell.id}</div>`}
+            <div class="cell-number">${cell.boardNumber}</div>`}
           </div>
         </button>
       `;
@@ -867,7 +902,7 @@ function renderBoard() {
           <div class="cell-face cell-missed ${isPending ? "pending-highlight" : ""}">
             <div class="no-point-mark">\u00d7</div>
             <div class="no-point-label">NO POINT</div>
-            <div class="cell-number" style="font-size:0.8rem; margin-top:2px; opacity:0.6;">${cell.id}</div>
+            <div class="cell-number" style="font-size:0.8rem; margin-top:2px; opacity:0.6;">${cell.boardNumber}</div>
           </div>
         </button>
       `;
@@ -882,7 +917,7 @@ function renderBoard() {
       <button class="cell-button" type="button" data-cell-index="${index}" ${state.pendingAssignment || state.pendingStealTeamId || state.attackChanceWaiting || state.attackChanceSignalReady || state.attackChanceReady || state.collapseAnimating || state.flipAnimating ? "disabled" : ""}>
         <div class="cell-face cell-hidden ${isPending ? "pending-highlight" : ""} ${attemptCount > 0 ? "cell-attempted" : ""}">
           <div class="cell-kicker">QUIZ</div>
-          <div class="cell-number">${cell.id}</div>
+          <div class="cell-number">${cell.boardNumber}</div>
           ${attemptBadge}
         </div>
       </button>
@@ -1100,7 +1135,7 @@ function renderModal() {
   const usedOpts = getUsedOptions(cellIndex);
   const remaining = MAX_ATTEMPTS - attemptCount;
 
-  els.modalLabel.textContent = `QUESTION ${modalCell.id}`;
+  els.modalLabel.textContent = `QUESTION ${modalCell.boardNumber}`;
   els.modalCategory.textContent = modalCell.category;
 
   // 正解時は問題文エリアを派手な演出に差し替える
@@ -1387,7 +1422,28 @@ function handleKeyboardFinalReveal(event) {
   return true;
 }
 
+function startQuiz() {
+  if (!els.coverScreen || els.coverScreen.classList.contains("hidden")) return;
+
+  els.coverScreen.classList.add("hidden");
+  els.coverScreen.setAttribute("aria-hidden", "true");
+  els.appShell?.removeAttribute("inert");
+
+  const firstTeamInput = els.teamNameGrid?.querySelector("input");
+  firstTeamInput?.focus();
+}
+
+function toggleGuide() {
+  if (!els.guidePanel || !els.guideToggleBtn) return;
+
+  const willOpen = els.guidePanel.hidden;
+  els.guidePanel.hidden = !willOpen;
+  els.guideToggleBtn.setAttribute("aria-expanded", String(willOpen));
+}
+
 function wireEvents() {
+  els.startQuizBtn?.addEventListener("click", startQuiz);
+  els.guideToggleBtn?.addEventListener("click", toggleGuide);
   els.resetBtn.addEventListener("click", resetGame);
   els.undoBtn.addEventListener("click", undoLast);
   els.closeModalBtn.addEventListener("click", closeModal);
@@ -1431,6 +1487,15 @@ function wireEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (els.coverScreen && !els.coverScreen.classList.contains("hidden")) {
+      if (event.key === "Escape" && els.guidePanel && !els.guidePanel.hidden) {
+        event.preventDefault();
+        toggleGuide();
+        els.guideToggleBtn?.focus();
+      }
+      return;
+    }
+
     if (event.key === "Escape" && !els.modalOverlay.classList.contains("hidden")) {
       closeModal();
       return;
